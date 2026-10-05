@@ -1,14 +1,14 @@
 import "server-only";
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { GetObjectCommand, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 
 /**
  * Image storage on any S3-compatible bucket. Production uses Neon Object
- * Storage (a public_read bucket in the same Neon project); Cloudflare R2 works
- * with the same settings. Uploads go through our own server (no browser→bucket
- * CORS). Without STORAGE_* settings in development, files are written to
- * ./.local-uploads and served by /api/files.
+ * Storage (a private bucket in the same Neon project); Cloudflare R2 works
+ * with the same settings. Uploads and reads both go through our own server
+ * (/api/uploads, /api/media), so the bucket stays private and needs no CORS.
+ * Without STORAGE_* settings in development, files live in ./.local-uploads.
  */
 
 export const IMAGE_TYPES = {
@@ -26,7 +26,6 @@ type S3Settings = {
   bucket: string;
   accessKeyId: string;
   secretAccessKey: string;
-  publicBaseUrl: string;
 };
 
 function s3Settings(): S3Settings | null {
@@ -41,8 +40,6 @@ function s3Settings(): S3Settings | null {
     bucket,
     accessKeyId,
     secretAccessKey,
-    // Path-style public URL of a public_read bucket, unless a CDN/custom domain is given.
-    publicBaseUrl: (process.env.STORAGE_PUBLIC_BASE_URL || `${endpoint}/${bucket}`).replace(/\/+$/, ""),
   };
 }
 
@@ -87,11 +84,48 @@ export async function putImage(key: string, body: Uint8Array, contentType: Image
   await writeFile(path, body);
 }
 
-/** Public URL for a stored object key (null-safe). */
+/**
+ * URL for a stored image (null-safe). By default images are served by
+ * /api/media, which checks the viewer is a member (or the paired venue
+ * screen), so the bucket can stay private. Set STORAGE_PUBLIC_BASE_URL only
+ * for a public bucket/CDN that should serve images directly.
+ */
 export function publicUrl(key: string | null | undefined): string | null {
   if (!key) return null;
+  const direct = process.env.STORAGE_PUBLIC_BASE_URL?.replace(/\/+$/, "");
+  return direct && s3Settings() ? `${direct}/${key}` : `/api/media/${key}`;
+}
+
+export type StoredImage = { body: BodyInit; contentType: string; size?: number };
+
+const TYPE_BY_EXT: Record<string, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" };
+
+/** Reads an image from the bucket (or the local folder in development); null when missing. */
+export async function getImage(key: string): Promise<StoredImage | null> {
+  const fallbackType = TYPE_BY_EXT[key.split(".").pop() ?? ""] ?? "application/octet-stream";
   const cfg = s3Settings();
-  return cfg ? `${cfg.publicBaseUrl}/${key}` : `/api/files/${key}`;
+  if (cfg) {
+    try {
+      const res = await s3(cfg).send(new GetObjectCommand({ Bucket: cfg.bucket, Key: key }));
+      if (!res.Body) return null;
+      return {
+        body: res.Body.transformToWebStream(),
+        contentType: res.ContentType || fallbackType,
+        size: res.ContentLength,
+      };
+    } catch (error) {
+      if ((error as { name?: string }).name === "NoSuchKey") return null;
+      throw error;
+    }
+  }
+  const path = join(LOCAL_UPLOAD_ROOT, key);
+  if (!path.startsWith(LOCAL_UPLOAD_ROOT)) return null;
+  try {
+    const data = await readFile(path);
+    return { body: new Uint8Array(data), contentType: fallbackType, size: data.length };
+  } catch {
+    return null;
+  }
 }
 
 /** Object keys we generate: members/<memberId>/<kind>-<uuid>.<ext> */

@@ -53,10 +53,11 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
      DATABASE_URL="postgres://…-pooler…/neondb?sslmode=require" npx drizzle-kit migrate
      ```
 2. **Neon Object Storage** (photos and logos), in the same Neon project:
-   - Branch → **Object storage** → **New bucket**, access level **public_read**.
+   - Branch → **Object storage** → **New bucket**. Keep it **private**: the app serves photos itself, only to signed-in members and the paired venue screen.
    - **Connect → Storage** → *Reveal credential*. The ID starts with `nak_live_`, the secret with `nsk_live_`; copy both.
    - Set `STORAGE_ENDPOINT`, `STORAGE_REGION`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY_ID` and `STORAGE_SECRET_ACCESS_KEY`.
-   - No CORS setup is needed: uploads go through the app's server, which checks each file is a real image.
+   - Check them before deploying: put the values in `.env` and run `node scripts/check-storage.mjs <bucket>`.
+   - No CORS setup is needed: uploads (`/api/uploads`) and reads (`/api/media`) both go through the app, which checks each upload is a real image.
 3. **Resend:** verify your sending domain, then set `RESEND_API_KEY` and `EMAIL_FROM`.
 4. **Vercel:** import the repository and add the variables from [.env.example](.env.example).
    - `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` are optional on Vercel; they default to the production domain.
