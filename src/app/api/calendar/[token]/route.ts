@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "@/db";
 import { member } from "@/db/schema";
 import { calendarItems } from "@/lib/calendar";
+import { appUrl } from "@/lib/app-url";
 import { buildIcs } from "@/lib/ical";
 
 export const dynamic = "force-dynamic";
@@ -22,7 +23,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/calendar/[token
 
   const now = Date.now();
   const items = await calendarItems(new Date(now - 30 * 86_400_000), new Date(now + 180 * 86_400_000));
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
+  const base = appUrl();
   const ics = buildIcs(
     "BNI Dheeras",
     items.map((i) => ({
@@ -32,7 +33,7 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/calendar/[token
       end: i.endsAt,
       location: i.location,
       description: i.description,
-      url: i.link ?? (appUrl ? `${appUrl}/calendar` : null),
+      url: i.link ?? (base ? `${base}/calendar` : null),
       cancelled: i.cancelled,
     })),
   );

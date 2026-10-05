@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { after } from "next/server";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
+import { appUrl, trustedOrigins } from "@/lib/app-url";
 import { sendEmail } from "@/lib/email";
 
 const DAY = 60 * 60 * 24;
@@ -15,7 +16,8 @@ const DAY = 60 * 60 * 24;
 export const auth = betterAuth({
   appName: "BNI Dheeras",
   secret: process.env.BETTER_AUTH_SECRET,
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL: process.env.BETTER_AUTH_URL || appUrl() || undefined,
+  trustedOrigins: trustedOrigins(),
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {

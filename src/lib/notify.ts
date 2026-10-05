@@ -2,6 +2,7 @@ import "server-only";
 import { and, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { member, notification, roleAssignment, term } from "@/db/schema";
+import { appUrl } from "@/lib/app-url";
 import { sendEmail } from "@/lib/email";
 import type { Role } from "@/lib/permissions";
 import { toIstDateInput } from "@/lib/time";
@@ -20,8 +21,8 @@ export async function notify(memberIds: string[], notice: Notice, opts: { email?
       .select({ email: member.email })
       .from(member)
       .where(and(inArray(member.id, ids), eq(member.status, "active")));
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "";
-    const text = [notice.body, notice.link ? `${appUrl}${notice.link}` : null].filter(Boolean).join("\n\n");
+    const base = appUrl();
+    const text = [notice.body, notice.link ? `${base}${notice.link}` : null].filter(Boolean).join("\n\n");
     await Promise.all(
       recipients.map((r) => sendEmail({ to: r.email, subject: notice.title, text: text || notice.title })),
     );
