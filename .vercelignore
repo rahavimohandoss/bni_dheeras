@@ -1,0 +1,9 @@
+# Never upload local secrets, local data or build output with `vercel deploy`.
+.env*
+!.env.example
+.data
+.local-uploads
+.next
+node_modules
+public/wasm
+*.tsbuildinfo
