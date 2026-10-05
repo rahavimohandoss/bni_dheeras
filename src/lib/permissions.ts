@@ -1,6 +1,7 @@
 /**
  * Roles are assigned per term (they rotate every six months). Capabilities are
- * what the code checks. Admin is a technical super-user with every capability.
+ * what the code checks. Admin is a technical super-user with every capability,
+ * and the President of the current term has exactly the same access.
  */
 export const ROLES = {
   president: "President",
@@ -51,8 +52,8 @@ const HEAD_TABLE: Capability[] = [
   "forms.manage",
 ];
 
-const ROLE_CAPS: Record<Role, Capability[]> = {
-  president: [...HEAD_TABLE, "audit.view"],
+const ROLE_CAPS: Record<Role, readonly Capability[]> = {
+  president: CAPABILITIES, // same as Admin (chapter decision D7)
   vice_president: [...HEAD_TABLE],
   secretary_treasurer: [
     ...HEAD_TABLE,
@@ -78,8 +79,13 @@ const ROLE_CAPS: Record<Role, Capability[]> = {
   training_coordinator: ["calendar.manage.training"],
 };
 
+/** Admin, or the President of the current term: every capability and the same exemptions. */
+export function hasFullAccess(roles: readonly Role[], isAdmin: boolean): boolean {
+  return isAdmin || roles.includes("president");
+}
+
 export function capabilitiesFor(roles: readonly Role[], isAdmin: boolean): Set<Capability> {
-  if (isAdmin) return new Set(CAPABILITIES);
+  if (hasFullAccess(roles, isAdmin)) return new Set(CAPABILITIES);
   const caps = new Set<Capability>();
   for (const role of roles) for (const cap of ROLE_CAPS[role] ?? []) caps.add(cap);
   return caps;
@@ -88,9 +94,12 @@ export function capabilitiesFor(roles: readonly Role[], isAdmin: boolean): Set<C
 /**
  * Separation of duties: the people who approve devices must not be able to
  * mark attendance manually, otherwise one person could approve a proxy phone
- * and also cover for it at the door.
+ * and also cover for it at the door. Admin and the President hold every
+ * capability by design, so the rule doesn't apply to them; their actions are
+ * audit-logged instead.
  */
 export function roleConflict(roles: readonly Role[]): string | null {
+  if (hasFullAccess(roles, false)) return null;
   const caps = capabilitiesFor(roles, false);
   if (caps.has("devices.approve") && caps.has("attendance.manual")) {
     return "One person can't both approve devices and do manual check-ins. Choose LVH roles or device-approver roles (Attendance Coordinator, Secretary / Treasurer), not both.";

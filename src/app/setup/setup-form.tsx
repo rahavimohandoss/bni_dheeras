@@ -56,7 +56,7 @@ export function SetupForm() {
 
 export function RecoveryForm() {
   const [state, action] = useActionState(recoverAdmin, null);
-  if (state?.ok) return <SignInNow url={state.data.loginUrl} text="Sign-in link created for this admin." />;
+  if (state?.ok) return <SignInNow url={state.data.loginUrl} text="Sign-in link created." />;
   return (
     <form action={action} className="space-y-4">
       {state && !state.ok ? (
@@ -69,11 +69,11 @@ export function RecoveryForm() {
         <Input id="r-token" name="token" type="password" required autoComplete="off" />
       </div>
       <div className="space-y-2">
-        <Label htmlFor="r-email">Admin email</Label>
+        <Label htmlFor="r-email">Admin or President email</Label>
         <Input id="r-email" name="email" type="email" required />
       </div>
       <SubmitButton className="w-full" variant="outline">
-        Get an admin sign-in link
+        Get a sign-in link
       </SubmitButton>
     </form>
   );

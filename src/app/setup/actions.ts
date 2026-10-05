@@ -9,6 +9,8 @@ import { audit } from "@/lib/audit";
 import { ensureDefaults } from "@/lib/defaults";
 import { createLoginLink } from "@/lib/login-links";
 import { createMember, memberInputSchema } from "@/lib/members";
+import { hasFullAccess } from "@/lib/permissions";
+import { getCurrentRoles } from "@/lib/session";
 
 function tokenMatches(given: string): boolean {
   const expected = process.env.SETUP_TOKEN;
@@ -38,19 +40,21 @@ export async function completeSetup(_prev: unknown, formData: FormData): Promise
 }
 
 /**
- * Break-glass access: with SETUP_TOKEN set in Vercel, an existing admin can get
- * a fresh sign-in link (e.g. the only admin lost their phone). Remove
- * SETUP_TOKEN again afterwards.
+ * Break-glass access: with SETUP_TOKEN set in Vercel, an existing admin or the
+ * current President can get a fresh sign-in link (e.g. they lost their phone).
+ * Remove SETUP_TOKEN again afterwards.
  */
 export async function recoverAdmin(_prev: unknown, formData: FormData): Promise<ActionResult<{ loginUrl: string }>> {
   return runAction(async () => {
     if (!tokenMatches(String(formData.get("token") ?? ""))) throw new UserError("The setup token is not correct.");
     const email = String(formData.get("email") ?? "").trim().toLowerCase();
     const [admin] = await db
-      .select({ id: member.id, email: member.email })
+      .select({ id: member.id, email: member.email, isAdmin: member.isAdmin })
       .from(member)
-      .where(and(eq(member.email, email), eq(member.isAdmin, true), eq(member.status, "active")));
-    if (!admin) throw new UserError("No active admin has that email.");
+      .where(and(eq(member.email, email), eq(member.status, "active")));
+    if (!admin || !hasFullAccess(await getCurrentRoles(admin.id), admin.isAdmin)) {
+      throw new UserError("No active admin or President has that email.");
+    }
     await audit({ actorId: admin.id, action: "setup.admin_recovery_link", entity: "member", entityId: admin.id });
     const link = await createLoginLink(admin.email);
     return { loginUrl: link.url };

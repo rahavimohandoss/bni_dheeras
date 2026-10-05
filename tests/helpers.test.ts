@@ -4,7 +4,7 @@ import { approximatePoint, formatDistance, haversineM } from "@/lib/attendance/g
 import { toCsv } from "@/lib/csv";
 import { normalizePhone, parseLooseDate, whatsappLink } from "@/lib/format";
 import { validateAnswers } from "@/lib/forms";
-import { ROLE_KEYS, capabilitiesFor, roleConflict } from "@/lib/permissions";
+import { CAPABILITIES, ROLE_KEYS, capabilitiesFor, hasFullAccess, roleConflict } from "@/lib/permissions";
 import { istToDate, startOfIstDay, toIstDateInput, toIstTimeInput } from "@/lib/time";
 import { youtubeEmbedUrl } from "@/lib/video";
 
@@ -36,6 +36,16 @@ describe("separation of duties", () => {
     expect(capabilitiesFor([], false).size).toBe(0);
     expect(capabilitiesFor(["lvh"], false).has("devices.approve")).toBe(false);
     expect(ROLE_KEYS.length).toBeGreaterThan(5);
+  });
+
+  it("the President has exactly the same access as Admin", () => {
+    expect(capabilitiesFor(["president"], false)).toEqual(capabilitiesFor([], true));
+    expect(capabilitiesFor(["president"], false).size).toBe(CAPABILITIES.length);
+    expect(hasFullAccess(["president"], false)).toBe(true);
+    expect(hasFullAccess(["vice_president", "secretary_treasurer"], false)).toBe(false);
+    // Like Admin, the President is outside the separation-of-duties rule.
+    expect(roleConflict(["president"])).toBeNull();
+    expect(roleConflict(["president", "lvh", "attendance_coordinator"])).toBeNull();
   });
 });
 

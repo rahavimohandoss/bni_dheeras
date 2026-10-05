@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { assignRole, createTerm, removeRole, setAdmin } from "@/actions/roles";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -109,7 +109,12 @@ export function RolesAdmin({
             return (
               <Card key={r.key}>
                 <CardContent className="py-3">
-                  <div className="mb-2 text-sm font-semibold">{r.label}</div>
+                  <div className="mb-2 text-sm font-semibold">
+                    {r.label}
+                    {r.key === "president" ? (
+                      <span className="ml-1.5 font-normal text-muted-foreground">· full access, same as Admin</span>
+                    ) : null}
+                  </div>
                   <div className="flex flex-wrap gap-1.5">
                     {holders.length === 0 ? <span className="text-sm text-muted-foreground">Nobody</span> : null}
                     {holders.map((h) => (
@@ -137,6 +142,7 @@ export function RolesAdmin({
         <Card>
           <CardHeader>
             <CardTitle className="text-base">App admins</CardTitle>
+            <CardDescription>The President of the current term has the same access without this tick.</CardDescription>
           </CardHeader>
           <CardContent className="max-h-80 space-y-2 overflow-y-auto">
             {members.map((m) => (

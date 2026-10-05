@@ -104,7 +104,7 @@ export async function decideLeave(id: string, approve: boolean): Promise<ActionR
     const me = await assertCap("leave.approve");
     const [current] = await db.select().from(leaveRequest).where(eq(leaveRequest.id, z.uuid().parse(id)));
     if (!current) throw new UserError("Request not found.");
-    if (current.memberId === me.id && !me.isAdmin) throw new UserError("Someone else must decide your own leave.");
+    if (current.memberId === me.id && !me.fullAccess) throw new UserError("Someone else must decide your own leave.");
     const [row] = await db
       .update(leaveRequest)
       .set({ status: approve ? "approved" : "rejected", decidedById: me.id, decidedAt: new Date() })

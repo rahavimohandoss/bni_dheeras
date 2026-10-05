@@ -123,7 +123,7 @@ export async function approveDevice(deviceId: string): Promise<ActionResult> {
     const [d] = await db.select().from(device).where(eq(device.id, deviceId));
     if (!d) throw new UserError("Device not found.");
     if (d.status !== "pending") throw new UserError("This device is not waiting for approval.");
-    if (d.memberId === me.id && !me.isAdmin) throw new UserError("Someone else must approve your own phone.");
+    if (d.memberId === me.id && !me.fullAccess) throw new UserError("Someone else must approve your own phone.");
     const now = new Date();
     await db.transaction(async (tx) => {
       await tx

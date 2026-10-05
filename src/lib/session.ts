@@ -6,7 +6,7 @@ import { cache } from "react";
 import { db } from "@/db";
 import { member, roleAssignment, term } from "@/db/schema";
 import { auth } from "@/lib/auth";
-import { type Capability, capabilitiesFor, isRole, type Role } from "@/lib/permissions";
+import { type Capability, capabilitiesFor, hasFullAccess, isRole, type Role } from "@/lib/permissions";
 import { toIstDateInput } from "@/lib/time";
 
 export type CurrentMember = {
@@ -18,6 +18,8 @@ export type CurrentMember = {
   businessName: string | null;
   category: string | null;
   isAdmin: boolean;
+  /** Admin, or the President of the current term (same access). */
+  fullAccess: boolean;
   roles: Role[];
   caps: Set<Capability>;
 };
@@ -64,6 +66,7 @@ export const getCurrentMember = cache(async (): Promise<CurrentMember | null> =>
     businessName: m.businessName,
     category: m.category,
     isAdmin: m.isAdmin,
+    fullAccess: hasFullAccess(roles, m.isAdmin),
     roles,
     caps: capabilitiesFor(roles, m.isAdmin),
   };

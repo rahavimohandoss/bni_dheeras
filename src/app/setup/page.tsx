@@ -37,8 +37,8 @@ export default async function SetupPage() {
         <>
           <h1 className="text-2xl font-bold">Admin recovery</h1>
           <p className="mt-2 mb-6 text-sm text-muted-foreground">
-            Setup is complete. If an admin can&apos;t sign in, enter the setup token and their email to get a one-time
-            sign-in link. Remove <code>SETUP_TOKEN</code> from the environment when you&apos;re done.
+            Setup is complete. If an admin or the President can&apos;t sign in, enter the setup token and their email to
+            get a one-time sign-in link. Remove <code>SETUP_TOKEN</code> from the environment when you&apos;re done.
           </p>
           <RecoveryForm />
         </>

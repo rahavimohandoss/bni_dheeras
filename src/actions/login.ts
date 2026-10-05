@@ -63,7 +63,7 @@ export async function requestLoginLink(phone: string): Promise<ActionResult> {
       )
       .limit(1);
     if (recent.length) return null;
-    const admins = await membersWithRoles(["secretary_treasurer"]);
+    const admins = await membersWithRoles(["secretary_treasurer", "president"]);
     const adminIds = (await db.select({ id: member.id }).from(member).where(eq(member.isAdmin, true))).map((a) => a.id);
     await notify([...admins, ...adminIds], {
       title: `Login link requested: ${m.fullName}`,

@@ -13,6 +13,7 @@
 > - **D4 Selfie check:** not used.
 > - **D5 Late:** counts from the exact start time. Grace minutes are a per-meeting field; empty means no grace. Geofence default is **150 m**, editable per venue and per meeting.
 > - **D6:** Dheeras only, so no multi-chapter `chapter_id`.
+> - **D7 President = Admin:** the President of the current term has exactly the same access as an Admin, including the exemption from the separation-of-duties rule (§3). It follows the role, so it moves to the new President when the term changes.
 
 ---
 
@@ -62,7 +63,7 @@
 
 Roles are assigned per **term**, and one member can hold several.
 
-| Capability | Member | LVH team | Attendance Coord. | Sec / Treasurer | President, VP | Admin |
+| Capability | Member | LVH team | Attendance Coord. | Sec / Treasurer | VP | President, Admin |
 |---|:-:|:-:|:-:|:-:|:-:|:-:|
 | Own profile, location, dance card, check-in | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Run kiosk QR + LVH live board | | ✓ | ✓ | ✓ | ✓ | ✓ |
@@ -72,9 +73,9 @@ Roles are assigned per **term**, and one member can hold several.
 | Weekly recognitions (Head Table) | | | | ✓ | ✓ | ✓ |
 | Calendar (each coordinator edits own slot type) | | | | ✓ | ✓ | ✓ |
 | Forms | | visitor forms | | ✓ | ✓ | ✓ |
-| Members, roles, settings, audit log | | | | | | ✓ |
+| Members, roles, settings, audit log | | | | members, audit log | | ✓ |
 
-Admin is a technical super-user. Every admin action is audit-logged too.
+Admin is a technical super-user, and the President of the current term has exactly the same access (decision D7). Both are exempt from the separation-of-duties rule (a device approver can't also do manual check-ins), so every action either of them takes is audit-logged.
 
 ## 4. Attendance
 

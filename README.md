@@ -40,10 +40,10 @@ npm run dev                     # http://localhost:3000
 
 ### How members sign in
 
-- **Admin creates the link:** the Secretary/Admin opens Admin → Members and taps **Login link** next to a member, then **Send on WhatsApp**. WhatsApp opens with a message to that member's number.
+- **Admin creates the link:** the Secretary, the President or an admin opens Admin → Members and taps **Login link** next to a member, then **Send on WhatsApp**. WhatsApp opens with a message to that member's number.
 - **The link:** single-use, valid for 24 hours. Its secret part is after `#`, so WhatsApp's link preview can't use it up. The member taps **Sign in** on the page it opens and stays signed in for 90 days on that phone.
-- **Members can ask for one:** on the sign-in page a member can tap *Request a login link*. This notifies the Secretary and admins in the app.
-- **Emergency:** if the only admin can't sign in, set `SETUP_TOKEN` in Vercel, open `/setup` and use **Admin recovery** to get a link. Remove the token afterwards.
+- **Members can ask for one:** on the sign-in page a member can tap *Request a login link*. This notifies the Secretary, the President and admins in the app.
+- **Emergency:** if no admin or President can sign in, set `SETUP_TOKEN` in Vercel, open `/setup` and use **Admin recovery** to get a link. Remove the token afterwards.
 - **Without demo data:** open `/setup`, enter `SETUP_TOKEN` and create the first admin.
 - **Dev-only test tools:** on the Check in page you can paste a kiosk token and pretend to be at the venue. They are compiled out of production builds, and the server still runs every check.
 
@@ -87,7 +87,8 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
 3. **Admin → Members → Import CSV:** BNI Connect roster saved as CSV, or add members one by one.
 4. **Admin → Roles & terms:**
    - President, VP, Secretary/Treasurer, LVH team, Attendance Coordinator, Membership Committee, coordinators.
-   - The app refuses to give one person both device-approval and manual check-in roles.
+   - The President of the current term gets the same full access as an Admin. When a new term starts, it moves to the new President.
+   - The app refuses to give anyone else both device-approval and manual check-in roles.
 5. **Device-setup meeting:**
    - every member installs the app (Add to Home Screen) and taps *Register this phone*;
    - the Attendance Coordinator approves each phone face-to-face by matching the 4-digit code.
