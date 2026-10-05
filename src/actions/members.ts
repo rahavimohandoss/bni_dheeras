@@ -10,6 +10,7 @@ import { type ActionResult, runAction, UserError } from "@/lib/action";
 import { audit } from "@/lib/audit";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { createMember, memberInputSchema } from "@/lib/members";
+import { getDefaultPassword, hashPassword } from "@/lib/passwords";
 import { assertCap } from "@/lib/session";
 
 export async function addMember(input: z.input<typeof memberInputSchema>): Promise<ActionResult<{ id: string }>> {
@@ -117,6 +118,8 @@ export async function importMembersCsv(csv: string): Promise<ActionResult<Import
       throw new UserError("The CSV needs at least a Name column and an Email column.");
     }
     const report: ImportReport = { created: 0, skipped: [] };
+    // Everyone starts on the default password: hash it once for the whole file.
+    const passwordHash = await hashPassword(await getDefaultPassword());
     for (const [i, raw] of parsed.data.entries()) {
       const mapped: Record<string, string> = {};
       for (const [key, value] of Object.entries(raw)) {
@@ -129,7 +132,7 @@ export async function importMembersCsv(csv: string): Promise<ActionResult<Import
         continue;
       }
       try {
-        await createMember(result.data);
+        await createMember(result.data, { passwordHash });
         report.created++;
       } catch (error) {
         report.skipped.push({ row: i + 2, reason: error instanceof UserError ? "already exists" : "could not save" });

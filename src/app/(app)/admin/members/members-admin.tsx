@@ -16,8 +16,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PasswordButton } from "@/components/password-button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { LoginLinkButton } from "./login-link-button";
 
 type Row = {
   id: string;
@@ -29,6 +29,7 @@ type Row = {
   status: "active" | "inactive";
   joinedOn: string | null;
   isAdmin: boolean;
+  mustChangePassword: boolean;
 };
 
 export function MembersAdmin({ members, meId }: { members: Row[]; meId: string }) {
@@ -86,13 +87,20 @@ export function MembersAdmin({ members, meId }: { members: Row[]; meId: string }
                   <div className="text-muted-foreground">{m.phone}</div>
                 </TableCell>
                 <TableCell>
-                  <Badge variant={m.status === "active" ? "secondary" : "outline"}>{m.status}</Badge>
+                  <div className="flex flex-wrap gap-1">
+                    <Badge variant={m.status === "active" ? "secondary" : "outline"}>{m.status}</Badge>
+                    {m.status === "active" && m.mustChangePassword ? (
+                      <Badge variant="outline" title="Hasn't signed in and set their own password yet">
+                        default password
+                      </Badge>
+                    ) : null}
+                  </div>
                 </TableCell>
                 <TableCell className="text-right">
                   <Button variant="ghost" size="sm" onClick={() => setEditing(m)}>
                     Edit
                   </Button>
-                  {m.status === "active" ? <LoginLinkButton memberId={m.id} name={m.fullName} /> : null}
+                  {m.status === "active" ? <PasswordButton memberId={m.id} name={m.fullName} /> : null}
                   {m.id !== meId ? <StatusToggle id={m.id} status={m.status} /> : null}
                 </TableCell>
               </TableRow>
@@ -139,7 +147,7 @@ function MemberDialog({ row, onClose }: { row: Row | null; onClose: () => void }
     start(async () => {
       const res = row ? await updateMember(row.id, input) : await addMember(input);
       if (!res.ok) return void toast.error(res.error);
-      toast.success(row ? "Member updated." : "Member added. Send them a login link on WhatsApp.");
+      toast.success(row ? "Member updated." : "Member added. Tap Password next to their name to send their login on WhatsApp.");
       onClose();
     });
   }
@@ -148,7 +156,10 @@ function MemberDialog({ row, onClose }: { row: Row | null; onClose: () => void }
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{row ? `Edit ${row.fullName}` : "Add member"}</DialogTitle>
-          <DialogDescription>Members sign in with a one-time link you send on WhatsApp, so the mobile number matters.</DialogDescription>
+          <DialogDescription>
+            The mobile number is their login ID. New members start on the default password and choose their own at the
+            first sign-in.
+          </DialogDescription>
         </DialogHeader>
         <form action={submit} className="grid gap-3">
           <Field name="fullName" label="Full name" defaultValue={row?.fullName} required />

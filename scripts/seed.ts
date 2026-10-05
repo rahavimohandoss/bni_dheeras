@@ -1,16 +1,21 @@
 /**
  * Demo data for LOCAL development only. Refuses to run against a remote
- * database. Creates an admin (admin@dheeras.test), demo members with roles, a
+ * database. Creates an admin (admin@dheeras.test), demo members with roles
+ * (all on the demo default password), a
  * venue in Madurai, a meeting whose check-in is open now, past meetings with
  * attendance, locations, calendar items, awards and a visitor form.
  *
  *   npm run db:local   (in another terminal)
  *   npm run seed
  */
+import { hashPassword } from "better-auth/crypto";
 import { sql } from "drizzle-orm";
 import { db, pool } from "../src/db";
 import * as s from "../src/db/schema";
 import { newMeetingSecret } from "../src/lib/attendance/qr-token";
+
+/** Local demo only. Everyone starts on it and chooses their own at first sign-in. */
+const DEFAULT_PASSWORD = "Dheeras@2026";
 
 const url = process.env.DATABASE_URL ?? "";
 if (!/@(localhost|127\.0\.0\.1)[:/]/.test(url)) {
@@ -76,6 +81,9 @@ async function main() {
     },
   });
 
+  await db.insert(s.setting).values({ key: "defaultPassword", value: DEFAULT_PASSWORD });
+  const passwordHash = await hashPassword(DEFAULT_PASSWORD);
+
   const [t] = await db
     .insert(s.term)
     .values({ name: "Oct 2026 – Mar 2027", startsOn: "2026-10-01", endsOn: "2027-03-31" })
@@ -86,6 +94,7 @@ async function main() {
     const id = uuid();
     ids.push(id);
     await db.insert(s.user).values({ id, name: p.name, email: p.email, emailVerified: true });
+    await db.insert(s.account).values({ id: uuid(), userId: id, accountId: id, providerId: "credential", password: passwordHash });
     await db.insert(s.member).values({
       id,
       fullName: p.name,
@@ -214,7 +223,10 @@ async function main() {
     ],
   });
 
-  console.log(`Seeded ${people.length} members. Sign in as admin@dheeras.test (the code prints in the dev server log).`);
+  console.log(
+    `Seeded ${people.length} members. Sign in with a mobile number (admin: 9840010000, President Arun: 9840010001) ` +
+      `or email (admin@dheeras.test) and the default password ${DEFAULT_PASSWORD}; you'll then choose your own.`,
+  );
 }
 
 main()

@@ -15,7 +15,7 @@ The design, loophole list and decisions are in [docs/PLAN.md](docs/PLAN.md).
 | App | Next.js 16.3 (App Router, Turbopack, React Compiler), React 19, TypeScript |
 | UI | Tailwind CSS v4, shadcn/ui (Radix), BNI brand colours |
 | Database | Neon Postgres in production; [PGlite](https://pglite.dev) locally. Same `pg` driver for both, via Drizzle ORM. |
-| Auth | Better Auth: one-time login links that the Secretary/Admin sends on WhatsApp. No passwords, no email service, no self sign-up. |
+| Auth | Better Auth: mobile number (or email) and password. Members start on the chapter's default password and set their own at the first sign-in; the Head Table resets forgotten ones. No email service, no self sign-up. |
 | Images | Neon Object Storage, S3-compatible, in the same Neon project (Cloudflare R2 also works). Images are compressed to WebP in the browser and checked by the server. |
 | Maps | Leaflet + OpenStreetMap (free), address search via Nominatim |
 | Email (optional) | Resend, only for email copies of alerts; everything also appears in-app |
@@ -34,17 +34,29 @@ npm run seed                    # optional: demo chapter (12 members, venue, mee
 npm run dev                     # http://localhost:3000
 ```
 
-- **Signing in locally:**
-  - Open `/setup`, enter `SETUP_TOKEN` from `.env.local` and `admin@dheeras.test` (the demo admin), then tap **Sign in now**.
-  - To sign in as another member: Admin → Members → **Login link**.
+- **Signing in locally:** every demo member starts on the demo default password `Dheeras@2026`.
+  - Admin: `9840010000` or `admin@dheeras.test`.
+  - President Arun: `9840010001`.
+  - The first sign-in asks you to choose your own password.
 
 ### How members sign in
 
-- **Admin creates the link:** the Secretary, the President or an admin opens Admin → Members and taps **Login link** next to a member, then **Send on WhatsApp**. WhatsApp opens with a message to that member's number.
-- **The link:** single-use, valid for 24 hours. Its secret part is after `#`, so WhatsApp's link preview can't use it up. The member taps **Sign in** on the page it opens and stays signed in for 90 days on that phone.
-- **Members can ask for one:** on the sign-in page a member can tap *Request a login link*. This notifies the Secretary, the President and admins in the app.
-- **Emergency:** if no admin or President can sign in, set `SETUP_TOKEN` in Vercel, open `/setup` and use **Admin recovery** to get a link. Remove the token afterwards.
-- **Without demo data:** open `/setup`, enter `SETUP_TOKEN` and create the first admin.
+- **Login ID:** the member's mobile number (or email). The password field has a show/hide toggle for phones.
+- **First time:** members start on the chapter's **default password**.
+  - Where it lives: Admin → Settings → Member sign-in. It's generated on first use, and admins can change it.
+  - After that first sign-in, the app makes them choose their own password before anything else.
+  - On Admin → Members, a *default password* badge shows who hasn't done this yet.
+  - **Password** next to a member shows their login details with **Send on WhatsApp**.
+- **Staying signed in:** members stay signed in until they sign out. Every visit extends the session; it only lapses after 400 days without opening the app (the browser cookie limit). Changing your own password (My profile → Password) keeps you signed in.
+- **Forgot password:** the President, VP or Secretary taps **Password → Reset to default password**, on the member's profile or in Admin → Members.
+  - The member signs in with the default and chooses a new password.
+  - A Head Table member can't reset someone who has more access than they do. For example, a VP can't reset the President or the Secretary, because that would let them sign in as that person. Only the President or an admin can reset those.
+- **Guessing limits:** 8 wrong passwords for one login ID, or 30 from one network, in 15 minutes block further tries for 15 minutes.
+- **Emergency:** if no admin or President can sign in:
+  1. Set `SETUP_TOKEN` in Vercel.
+  2. Open `/setup` and use **Admin recovery** to set a new password.
+  3. Remove the token afterwards.
+- **Without demo data:** open `/setup`, enter `SETUP_TOKEN` and create the first admin with their own password.
 - **Dev-only test tools:** on the Check in page you can paste a kiosk token and pretend to be at the venue. They are compiled out of production builds, and the server still runs every check.
 
 ### Testing on a real phone
@@ -73,7 +85,7 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
    - Every build applies any pending database migrations (`vercel-build`).
    - [vercel.json](vercel.json) pins functions to `sin1` and schedules the Monday attendance report (09:00 IST). Set `CRON_SECRET`.
    - The Hobby (free) plan is meant for non-commercial use. Check Vercel's terms for a chapter app.
-5. **First admin:** with `SETUP_TOKEN` set, open `https://YOUR-APP-DOMAIN/setup`. Afterwards, remove `SETUP_TOKEN`.
+5. **First admin:** with `SETUP_TOKEN` set, open `https://YOUR-APP-DOMAIN/setup` and create the admin with their own password. Afterwards, remove `SETUP_TOKEN`.
 6. **Optional:**
    - `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`: spam check on public forms.
    - `NOMINATIM_EMAIL`: contact address for OpenStreetMap's address search.
@@ -85,12 +97,15 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
    - day and time;
    - grace minutes (empty means late counts from the exact start time).
 3. **Admin → Members → Import CSV:** BNI Connect roster saved as CSV, or add members one by one.
+   - The mobile number is each member's login ID.
+   - Everyone starts on the default password (Admin → Settings → Member sign-in). Share it with the chapter, or send each member their details from **Password → Send on WhatsApp**.
 4. **Admin → Roles & terms:**
    - President, VP, Secretary/Treasurer, LVH team, Attendance Coordinator, Membership Committee, coordinators.
    - The President of the current term gets the same full access as an Admin. When a new term starts, it moves to the new President.
    - The app refuses to give anyone else both device-approval and manual check-in roles.
 5. **Device-setup meeting:**
-   - every member installs the app (Add to Home Screen) and taps *Register this phone*;
+   - every member installs the app on their own phone (Add to Home Screen) and opens it;
+   - they sign in there with their mobile number and the default password, choose their own password, and tap *Register this phone*. On iPhone, the installed app doesn't share sign-in with Safari, so they sign in inside the installed app;
    - the Attendance Coordinator approves each phone face-to-face by matching the 4-digit code.
 6. **LVH desk → Pair a venue screen:** pair the projector laptop and open the meeting's QR.
 7. **Shadow run:** run two meetings alongside the current method, compare PALMS, then switch over.

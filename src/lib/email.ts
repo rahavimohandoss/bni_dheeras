@@ -8,7 +8,7 @@ let warned = false;
 
 /**
  * Optional email copies of notifications (absence alerts, Monday report).
- * Sign-in does not use email: members get WhatsApp login links. Without
+ * Sign-in does not use email: members use their mobile number and password. Without
  * RESEND_API_KEY, emails are skipped; the in-app notification still appears.
  */
 export async function sendEmail({ to, subject, text }: Email): Promise<void> {

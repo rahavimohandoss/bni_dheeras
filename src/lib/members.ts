@@ -1,10 +1,11 @@
 import "server-only";
 import { z } from "zod";
-import { type DBOrTx, db } from "@/db";
+import { db } from "@/db";
 import { member, user } from "@/db/schema";
 import { UserError } from "@/lib/action";
 import { isUniqueViolation } from "@/lib/db-errors";
 import { normalizePhone, parseLooseDate } from "@/lib/format";
+import { getDefaultPassword, hashPassword, storePassword } from "@/lib/passwords";
 
 export { normalizePhone, parseLooseDate, whatsappLink } from "@/lib/format";
 
@@ -27,23 +28,31 @@ export const memberInputSchema = z.object({
 
 export type MemberInput = z.output<typeof memberInputSchema>;
 
-/** Creates the Better Auth user and the member row with the same id. */
+/**
+ * Creates the Better Auth user, the member row (same id) and their password.
+ * New members get the chapter's default password and must choose their own
+ * at the first sign-in. Pass `passwordHash` to reuse one hash for a batch.
+ */
 export async function createMember(
   input: MemberInput & { isAdmin?: boolean },
-  conn: DBOrTx = db,
+  opts: { passwordHash?: string; mustChangePassword?: boolean } = {},
 ): Promise<string> {
   const id = crypto.randomUUID();
+  const passwordHash = opts.passwordHash ?? (await hashPassword(await getDefaultPassword()));
   try {
-    await conn.insert(user).values({ id, name: input.fullName, email: input.email, emailVerified: true });
-    await conn.insert(member).values({
-      id,
-      fullName: input.fullName,
-      email: input.email,
-      phone: input.phone,
-      businessName: input.businessName,
-      category: input.category,
-      joinedOn: input.joinedOn,
-      isAdmin: input.isAdmin ?? false,
+    await db.transaction(async (tx) => {
+      await tx.insert(user).values({ id, name: input.fullName, email: input.email, emailVerified: true });
+      await tx.insert(member).values({
+        id,
+        fullName: input.fullName,
+        email: input.email,
+        phone: input.phone,
+        businessName: input.businessName,
+        category: input.category,
+        joinedOn: input.joinedOn,
+        isAdmin: input.isAdmin ?? false,
+      });
+      await storePassword(id, passwordHash, opts.mustChangePassword ?? true, tx);
     });
   } catch (error) {
     if (isUniqueViolation(error)) throw new UserError(`A member with this email or phone already exists (${input.email}).`);

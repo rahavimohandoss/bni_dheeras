@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { FormField } from "@/db/schema";
 import { approximatePoint, formatDistance, haversineM } from "@/lib/attendance/geo";
 import { toCsv } from "@/lib/csv";
-import { normalizePhone, parseLooseDate, whatsappLink } from "@/lib/format";
+import { normalizePhone, parseLoginId, parseLooseDate, whatsappLink } from "@/lib/format";
 import { validateAnswers } from "@/lib/forms";
-import { CAPABILITIES, ROLE_KEYS, capabilitiesFor, hasFullAccess, roleConflict } from "@/lib/permissions";
+import { CAPABILITIES, ROLE_KEYS, capabilitiesFor, capsCover, hasFullAccess, roleConflict } from "@/lib/permissions";
 import { istToDate, startOfIstDay, toIstDateInput, toIstTimeInput } from "@/lib/time";
 import { youtubeEmbedUrl } from "@/lib/video";
 
@@ -46,6 +46,33 @@ describe("separation of duties", () => {
     // Like Admin, the President is outside the separation-of-duties rule.
     expect(roleConflict(["president"])).toBeNull();
     expect(roleConflict(["president", "lvh", "attendance_coordinator"])).toBeNull();
+  });
+
+  it("only lets Head Table reset passwords of people who can't do more than them", () => {
+    const vp = capabilitiesFor(["vice_president"], false);
+    const secretary = capabilitiesFor(["secretary_treasurer"], false);
+    const president = capabilitiesFor(["president"], false);
+    expect(vp.has("members.reset_password")).toBe(true);
+    expect(secretary.has("members.reset_password")).toBe(true);
+    expect(capabilitiesFor(["lvh_captain"], false).has("members.reset_password")).toBe(false);
+    expect(capsCover(vp, capabilitiesFor([], false))).toBe(true);
+    expect(capsCover(vp, capabilitiesFor(["education_coordinator"], false))).toBe(true);
+    expect(capsCover(vp, secretary)).toBe(false);
+    expect(capsCover(vp, president)).toBe(false);
+    expect(capsCover(secretary, vp)).toBe(true);
+    expect(capsCover(secretary, capabilitiesFor([], true))).toBe(false);
+    expect(capsCover(president, capabilitiesFor([], true))).toBe(true);
+  });
+});
+
+describe("login IDs", () => {
+  it("accepts a mobile number or an email", () => {
+    expect(parseLoginId(" 98400 12345 ")).toEqual({ phone: "+919840012345" });
+    expect(parseLoginId("+91 98400-12345")).toEqual({ phone: "+919840012345" });
+    expect(parseLoginId("Arun@Dheeras.Test ")).toEqual({ email: "arun@dheeras.test" });
+    expect(parseLoginId("")).toBeNull();
+    expect(parseLoginId("arun")).toBeNull();
+    expect(parseLoginId("12345")).toBeNull();
   });
 });
 

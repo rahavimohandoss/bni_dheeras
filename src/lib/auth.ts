@@ -3,19 +3,19 @@ import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { APIError } from "better-auth/api";
 import { nextCookies } from "better-auth/next-js";
-import { magicLink } from "better-auth/plugins";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import * as schema from "@/db/schema";
 import { appUrl, trustedOrigins } from "@/lib/app-url";
-import { captureLoginToken, LOGIN_LINK_TTL_SECONDS } from "@/lib/login-link-capture";
+import { PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH } from "@/lib/format";
 
 const DAY = 60 * 60 * 24;
 
 /*
- * Members sign in with one-time login links that the Secretary/Admin creates
- * and sends on WhatsApp (no email service). Links are single-use, valid for
- * 24 hours and stored hashed. Accounts exist only if an admin added them.
+ * Members sign in with their mobile number (or email) and a password. New
+ * members start on the chapter's default password and choose their own at the
+ * first sign-in; the Head Table resets forgotten passwords back to the
+ * default. There is no self sign-up: accounts exist only if an admin added them.
  */
 export const auth = betterAuth({
   appName: "BNI Dheeras",
@@ -32,12 +32,30 @@ export const auth = betterAuth({
       rateLimit: schema.rateLimit,
     },
   }),
-  emailAndPassword: { enabled: false },
-  // Long sessions: members stay signed in on their registered phone.
-  session: { expiresIn: 90 * DAY, updateAge: DAY },
+  emailAndPassword: {
+    enabled: true,
+    disableSignUp: true,
+    minPasswordLength: PASSWORD_MIN_LENGTH,
+    maxPasswordLength: PASSWORD_MAX_LENGTH,
+  },
+  // Members stay signed in until they sign out: every visit pushes the expiry
+  // out again. Browsers keep a cookie for at most 400 days, so that's the
+  // longest anyone can go without opening the app.
+  session: { expiresIn: 400 * DAY, updateAge: DAY },
   rateLimit: { enabled: true, storage: "database" },
-  // Links are created only by admins on the server, never requested over HTTP.
-  disabledPaths: ["/sign-in/magic-link"],
+  // Sign-in and password changes go through our server actions (throttling,
+  // default-password rules, audit log), never straight to these endpoints.
+  disabledPaths: [
+    "/sign-in/email",
+    "/sign-up/email",
+    "/change-password",
+    "/verify-password",
+    "/request-password-reset",
+    "/reset-password",
+    "/update-user",
+    "/change-email",
+    "/delete-user",
+  ],
   databaseHooks: {
     session: {
       create: {
@@ -53,14 +71,5 @@ export const auth = betterAuth({
       },
     },
   },
-  plugins: [
-    magicLink({
-      disableSignUp: true,
-      expiresIn: LOGIN_LINK_TTL_SECONDS,
-      storeToken: "hashed",
-      // Nothing is emailed: the token is handed back to the admin who asked for it.
-      sendMagicLink: ({ token }) => captureLoginToken(token),
-    }),
-    nextCookies(),
-  ],
+  plugins: [nextCookies()],
 });

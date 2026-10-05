@@ -12,6 +12,7 @@ import { getMemberDevices } from "@/lib/devices";
 import { ROLES } from "@/lib/permissions";
 import { requireMember } from "@/lib/session";
 import { publicUrl } from "@/lib/storage";
+import { ChangePasswordForm } from "./change-password-form";
 import { ProfileForm } from "./profile-form";
 
 export const metadata: Metadata = { title: "My profile" };
@@ -104,6 +105,19 @@ export default async function MePage() {
               Changing phones? Register the new one; after approval the old one stops working. Clearing this
               browser&apos;s data also removes its registration.
             </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Password</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Your login ID is {me.phone ? `your mobile number (${me.phone})` : `your email (${me.email})`}. Forgot your
+              password later? Ask the President, VP or Secretary to reset it.
+            </p>
+            <ChangePasswordForm />
           </CardContent>
         </Card>
       </div>

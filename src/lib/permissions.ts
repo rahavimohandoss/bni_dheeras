@@ -36,6 +36,7 @@ export const CAPABILITIES = [
   "calendar.manage.training",
   "forms.manage",
   "members.manage",
+  "members.reset_password",
   "roles.manage",
   "settings.manage",
   "audit.view",
@@ -50,6 +51,7 @@ const HEAD_TABLE: Capability[] = [
   "awards.manage",
   "calendar.manage",
   "forms.manage",
+  "members.reset_password",
 ];
 
 const ROLE_CAPS: Record<Role, readonly Capability[]> = {
@@ -105,6 +107,21 @@ export function roleConflict(roles: readonly Role[]): string | null {
     return "One person can't both approve devices and do manual check-ins. Choose LVH roles or device-approver roles (Attendance Coordinator, Secretary / Treasurer), not both.";
   }
   return null;
+}
+
+/**
+ * True when `actor` holds every capability `target` holds. Resetting someone's
+ * password to the shared default lets you sign in as them, so a Head Table
+ * member may only reset people who can't do more than they can (a VP can't
+ * reset the President or the Secretary, for example).
+ */
+export function capsCover(actor: ReadonlySet<Capability>, target: ReadonlySet<Capability>): boolean {
+  for (const cap of target) {
+    if (actor.has(cap)) continue;
+    if (cap.startsWith("calendar.manage.") && actor.has("calendar.manage")) continue;
+    return false;
+  }
+  return true;
 }
 
 export function isRole(value: string): value is Role {

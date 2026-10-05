@@ -20,6 +20,8 @@ export type CurrentMember = {
   isAdmin: boolean;
   /** Admin, or the President of the current term (same access). */
   fullAccess: boolean;
+  /** Signed in with the default password and hasn't chosen their own yet. */
+  mustChangePassword: boolean;
   roles: Role[];
   caps: Set<Capability>;
 };
@@ -67,15 +69,17 @@ export const getCurrentMember = cache(async (): Promise<CurrentMember | null> =>
     category: m.category,
     isAdmin: m.isAdmin,
     fullAccess: hasFullAccess(roles, m.isAdmin),
+    mustChangePassword: m.mustChangePassword,
     roles,
     caps: capabilitiesFor(roles, m.isAdmin),
   };
 });
 
-/** For pages: redirect to login when signed out. */
+/** For pages: redirect to login when signed out, and to /set-password while on the default password. */
 export async function requireMember(): Promise<CurrentMember> {
   const m = await getCurrentMember();
   if (!m) redirect("/login");
+  if (m.mustChangePassword) redirect("/set-password");
   return m;
 }
 

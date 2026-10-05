@@ -99,6 +99,22 @@ export const rateLimit = pgTable("rate_limit", {
   lastRequest: bigint("last_request", { mode: "number" }).notNull(),
 });
 
+/** Password sign-in attempts, for throttling guesses per login ID and per IP. */
+export const loginAttempt = pgTable(
+  "login_attempt",
+  {
+    id: id(),
+    identifier: text("identifier").notNull(),
+    ip: text("ip"),
+    ok: boolean("ok").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("login_attempt_identifier_idx").on(t.identifier, t.createdAt),
+    index("login_attempt_ip_idx").on(t.ip, t.createdAt),
+  ],
+);
+
 /* ------------------------------------------------------------------ */
 /* Members, terms and roles                                            */
 /* ------------------------------------------------------------------ */
@@ -118,6 +134,8 @@ export const member = pgTable("member", {
   photoKey: text("photo_key"),
   status: text("status", { enum: MEMBER_STATUSES }).notNull().default("active"),
   isAdmin: boolean("is_admin").notNull().default(false),
+  /** Still on the chapter's default password: must choose their own at next sign-in. */
+  mustChangePassword: boolean("must_change_password").notNull().default(true),
   joinedOn: date("joined_on"),
   calendarToken: text("calendar_token")
     .notNull()

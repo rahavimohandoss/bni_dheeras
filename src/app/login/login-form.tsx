@@ -1,76 +1,65 @@
 "use client";
 
-import { Loader2Icon, MessageCircleIcon } from "lucide-react";
-import { useState, useTransition } from "react";
-import { requestLoginLink } from "@/actions/login";
+import { LogInIcon } from "lucide-react";
+import { useActionState, useState } from "react";
+import { signIn } from "@/actions/auth";
+import { PasswordInput } from "@/components/password-input";
+import { SubmitButton } from "@/components/submit-button";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-export function LoginForm({ error }: { error: string | null }) {
-  const [phone, setPhone] = useState("");
-  const [sent, setSent] = useState(false);
-  const [problem, setProblem] = useState<string | null>(null);
-  const [pending, start] = useTransition();
+export function LoginForm() {
+  const [state, action] = useActionState(signIn, null);
+  // Controlled, so a wrong password doesn't clear the login ID.
+  const [loginId, setLoginId] = useState("");
 
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
         <CardTitle>Sign in</CardTitle>
-        <CardDescription>
-          Members sign in with a one-time login link that the Secretary sends on WhatsApp. Open it on the phone you use
-          for check-in; you&apos;ll stay signed in.
-        </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        {error ? (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
-        ) : null}
-        {sent ? (
-          <Alert>
-            <MessageCircleIcon />
-            <AlertDescription>
-              Request sent. If this number is registered, the Secretary will send your login link on WhatsApp.
-            </AlertDescription>
-          </Alert>
-        ) : (
-          <form
-            className="space-y-3"
-            onSubmit={(e) => {
-              e.preventDefault();
-              setProblem(null);
-              start(async () => {
-                const res = await requestLoginLink(phone);
-                if (res.ok) setSent(true);
-                else setProblem(res.error);
-              });
-            }}
-          >
-            <div className="space-y-2">
-              <Label htmlFor="phone">Don&apos;t have a link? Your registered mobile number</Label>
-              <Input
-                id="phone"
-                type="tel"
-                inputMode="tel"
-                autoComplete="tel"
-                required
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                placeholder="98400 12345"
-                className="h-11 text-base"
-              />
-            </div>
-            {problem ? <p className="text-sm text-destructive">{problem}</p> : null}
-            <Button type="submit" className="h-11 w-full text-base" disabled={pending}>
-              {pending ? <Loader2Icon className="animate-spin" /> : <MessageCircleIcon />}
-              Request a login link
-            </Button>
-          </form>
-        )}
+      <CardContent>
+        <form action={action} className="space-y-4">
+          {state && !state.ok ? (
+            <Alert variant="destructive">
+              <AlertDescription>{state.error}</AlertDescription>
+            </Alert>
+          ) : null}
+          <div className="space-y-2">
+            <Label htmlFor="loginId">Mobile number or email</Label>
+            <Input
+              id="loginId"
+              name="loginId"
+              autoComplete="username"
+              autoCapitalize="none"
+              spellCheck={false}
+              required
+              value={loginId}
+              onChange={(e) => setLoginId(e.target.value)}
+              placeholder="98400 12345"
+              className="h-11 text-base"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <PasswordInput id="password" name="password" autoComplete="current-password" required className="h-11 text-base" />
+          </div>
+          <SubmitButton className="h-11 w-full text-base">
+            <LogInIcon /> Sign in
+          </SubmitButton>
+          <div className="space-y-1.5 text-sm text-muted-foreground">
+            <p>
+              <b className="font-medium text-foreground">First time?</b> Use the default password from your Head Table.
+              You&apos;ll choose your own right after.
+            </p>
+            <p>
+              <b className="font-medium text-foreground">Forgot your password?</b> Ask the President, VP or Secretary to
+              reset it.
+            </p>
+          </div>
+        </form>
       </CardContent>
     </Card>
   );

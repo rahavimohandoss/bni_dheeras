@@ -7,7 +7,10 @@
 2. **Location:** members save their business location. Any member can see all the others sorted nearest → farthest from their own location, in a list view and a map view.
 
 > **Confirmed decisions (5 Oct 2026). Where the draft below differs, these win:**
-> - **D1 Login:** one-time login links that the Secretary/Admin sends on WhatsApp (changed from email codes; no email service needed).
+> - **D1 Login:** mobile number (or email) and password. This replaced email codes, and then WhatsApp login links.
+>   - Every member starts on the chapter's default password and must choose their own at the first sign-in.
+>   - Members stay signed in until they sign out.
+>   - A forgotten password is reset to the default by the President, VP or Secretary. Nobody can reset someone with more access than themselves.
 > - **D2 Maps:** free Leaflet + OpenStreetMap, with Nominatim address search (no Google Maps).
 > - **D3 Hosting:** Vercel free (Hobby) plan.
 > - **D4 Selfie check:** not used.
@@ -19,7 +22,7 @@
 
 ## 0. Summary
 
-- **Stack:** Next.js 16.3 + TypeScript, Neon Postgres + Drizzle, Neon Object Storage for images, Better Auth (WhatsApp login links), Tailwind v4 + shadcn/ui in BNI colours. Ships as an installable PWA.
+- **Stack:** Next.js 16.3 + TypeScript, Neon Postgres + Drizzle, Neon Object Storage for images, Better Auth (mobile number + password), Tailwind v4 + shadcn/ui in BNI colours. Ships as an installable PWA.
 - **Attendance:** the QR on the venue screen changes every 15 seconds, and members scan it inside the app. A check-in counts only if all seven checks in §4.2 pass. The main ones: the request comes from that member's single approved phone, the QR is under 30 seconds old, and the phone's GPS puts it at the venue.
 - **"One person, many logins" is blocked by design.** A phone can belong to only one member, and each member has only one approved phone. Logging into a second account on the same phone checks nobody in, and a new phone needs a person to approve it.
 - **Cheating that software can't block is made visible:**
@@ -47,7 +50,7 @@
 | Framework | **Next.js 16.3** (latest stable on npm: 16.3.8), App Router, React 19, TypeScript, Turbopack | Server Components + Server Actions; `proxy.ts` gates routes. Runs on Node 22 LTS. |
 | Database | **Neon Postgres** in AWS Singapore, the nearest region (Neon has no India region) | `main` + `dev` branches; point-in-time restore |
 | ORM | Drizzle ORM + drizzle-kit migrations, `@neondatabase/serverless` | |
-| Auth | Better Auth one-time login links (single-use, 24 h, stored hashed), sent by the Secretary/Admin on WhatsApp; sessions stored in the database | Roles come from our own `role_assignments` table |
+| Auth | Better Auth with mobile number (or email) and password, via our own server actions (guessing limits, default-password rules, audit log). Sessions are stored in the database and extended on every visit. | Roles come from our own `role_assignments` table |
 | Images | **Neon Object Storage** (S3-compatible, same Neon project; R2 also works). Images are compressed to WebP in the browser, then uploaded through the app server, which checks the file type. | Free plan includes 5 GB |
 | UI | Tailwind CSS v4 + shadcn/ui; BNI Red `#CF2030`, Granite Grey `#64666A`; Helvetica Neue with Arial fallback | Follows BNI brand guidelines |
 | App shell | Installable PWA (manifest, icons, "Add to Home Screen") | No app store needed |
@@ -177,7 +180,7 @@ Every attempt, passed or failed, is stored with a reason code, distance and accu
 | T7 | Checking in before or after the meeting, or on another day | The check-in window and Late status are computed from server time | Blocked |
 | T8 | Changing the phone's clock | The phone's time is never used | Blocked |
 | T9 | Fake GPS without the live QR | Still needs a QR under 30 s old, so this becomes T4 | Blocked |
-| T10 | Sharing the login OTP with a friend | Logging in isn't enough; check-in needs the approved device | Blocked |
+| T10 | Sharing your password with a friend, or someone using the default password before the member has signed in | Logging in isn't enough; check-in needs the approved device | Blocked |
 | T11 | Forging or guessing QR tokens | Tokens use HMAC with a server-only secret per meeting; rate limits apply | Blocked |
 | T12 | Opening the kiosk QR page at home | The token endpoint answers only paired kiosks and sessions with LVH or a higher role. Every kiosk session is logged. | Blocked |
 | T13 | An LVH member or admin marks a friend present | A reason is required. The audit log records who, when and why. The summary shows a "Manual" badge, and the Secretary sees the manual count per meeting. | Visible + recorded |
@@ -352,7 +355,7 @@ Better Auth adds its own tables (user, session, account, verification).
 
 | Phase | Delivers | Done when |
 |---|---|---|
-| 0. Foundation | App skeleton, BNI theme, Neon + Drizzle, WhatsApp login links, roles per term, image uploads, PWA, CI/CD, roster import (CSV or BNI Connect roster export) | All members can log in and add a photo |
+| 0. Foundation | App skeleton, BNI theme, Neon + Drizzle, password sign-in, roles per term, image uploads, PWA, CI/CD, roster import (CSV or BNI Connect roster export) | All members can log in and add a photo |
 | 1. Attendance | Venues, meetings, device approval, kiosk, scan check-in, LVH board, fallbacks, leave + substitutes, finalize + headcount, PALMS summary, counter, alerts, Monday report, audit log | Every row T1–T16 tested, and 2 meetings shadow-run alongside the current method with matching results |
 | 2. Profile + Location | Profile editor, directory, location setup, Near me list + map | Members can find each other nearest → farthest |
 | 3. Calendar + Recognitions | Calendar, slots, iCal feed; award entry, home screen winners, history | The Head Table publishes a week's awards |

@@ -16,6 +16,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PageContainer } from "@/components/page-header";
+import { PasswordButton } from "@/components/password-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/db";
@@ -87,6 +88,9 @@ export default async function MemberPage({ params }: PageProps<"/members/[id]">)
               <IdCardIcon /> Dance card
             </Link>
           </Button>
+        ) : null}
+        {id !== me.id && me.caps.has("members.reset_password") ? (
+          <PasswordButton memberId={id} name={m.fullName} variant="outline" />
         ) : null}
       </div>
 

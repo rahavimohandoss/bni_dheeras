@@ -21,6 +21,7 @@ export default async function MembersAdminPage() {
       status: member.status,
       joinedOn: member.joinedOn,
       isAdmin: member.isAdmin,
+      mustChangePassword: member.mustChangePassword,
     })
     .from(member)
     .orderBy(asc(member.fullName));

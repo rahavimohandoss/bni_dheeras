@@ -4,6 +4,7 @@ import { db } from "@/db";
 import { absenceFollowup, attendance, meeting, member } from "@/db/schema";
 import { absenceCounts, lateCounts } from "@/lib/attendance/queries";
 import { notify, membersWithRoles } from "@/lib/notify";
+import { pruneLoginAttempts } from "@/lib/passwords";
 import { getAttendanceSettings } from "@/lib/settings";
 import { formatDate } from "@/lib/time";
 
@@ -24,6 +25,7 @@ function authorized(req: Request): boolean {
  */
 export async function GET(req: Request) {
   if (!authorized(req)) return new Response("Unauthorized", { status: 401 });
+  await pruneLoginAttempts();
   const settings = await getAttendanceSettings();
   const [last] = await db
     .select()

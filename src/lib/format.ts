@@ -9,6 +9,18 @@ export function normalizePhone(raw: string | null | undefined): string | null {
   return digits.startsWith("+") ? digits : `+${digits}`;
 }
 
+/** Members sign in with their mobile number or their email address. */
+export function parseLoginId(raw: string): { email: string } | { phone: string } | null {
+  const value = raw.trim();
+  if (!value) return null;
+  if (value.includes("@")) return { email: value.toLowerCase() };
+  const phone = normalizePhone(value);
+  return phone && /^\+\d{10,15}$/.test(phone) ? { phone } : null;
+}
+
+export const PASSWORD_MIN_LENGTH = 8;
+export const PASSWORD_MAX_LENGTH = 128;
+
 /** Accepts YYYY-MM-DD, DD/MM/YYYY or DD-MM-YYYY (as BNI exports often use); anything else becomes null. */
 export function parseLooseDate(value: string | undefined): string | null {
   const v = value?.trim();

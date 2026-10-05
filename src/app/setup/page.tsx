@@ -22,8 +22,8 @@ export default async function SetupPage() {
           {tokenSet ? (
             <>
               <p className="mt-2 mb-6 text-sm text-muted-foreground">
-                Create the first admin. You&apos;ll sign in straight away, then add the chapter&apos;s members and send
-                them login links on WhatsApp.
+                Create the first admin with their own password. You&apos;ll be signed in straight away; then add the
+                chapter&apos;s members, who start on the default password.
               </p>
               <SetupForm />
             </>
@@ -37,8 +37,9 @@ export default async function SetupPage() {
         <>
           <h1 className="text-2xl font-bold">Admin recovery</h1>
           <p className="mt-2 mb-6 text-sm text-muted-foreground">
-            Setup is complete. If an admin or the President can&apos;t sign in, enter the setup token and their email to
-            get a one-time sign-in link. Remove <code>SETUP_TOKEN</code> from the environment when you&apos;re done.
+            Setup is complete. If an admin or the President can&apos;t sign in, enter the setup token and their mobile
+            number or email to set a new password. Remove <code>SETUP_TOKEN</code> from the environment when you&apos;re
+            done.
           </p>
           <RecoveryForm />
         </>
