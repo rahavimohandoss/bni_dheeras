@@ -1,11 +1,10 @@
 import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
-import { isSafeKey, storageMode } from "@/lib/storage";
+import { join } from "node:path";
+import { isSafeKey, LOCAL_UPLOAD_ROOT as ROOT, storageMode } from "@/lib/storage";
 
-const ROOT = resolve(process.cwd(), ".local-uploads");
 const TYPES: Record<string, string> = { jpg: "image/jpeg", png: "image/png", webp: "image/webp" };
 
-/** Serves locally stored uploads in development. In production images come from R2. */
+/** Serves locally stored uploads in development. In production images come from the storage bucket. */
 export async function GET(_req: Request, ctx: RouteContext<"/api/files/[...key]">) {
   if (storageMode() !== "local") return new Response("Not found", { status: 404 });
   const { key: parts } = await ctx.params;

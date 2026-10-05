@@ -16,7 +16,7 @@ The design, loophole list and decisions are in [docs/PLAN.md](docs/PLAN.md).
 | UI | Tailwind CSS v4, shadcn/ui (Radix), BNI brand colours |
 | Database | Neon Postgres in production; [PGlite](https://pglite.dev) locally. Same `pg` driver for both, via Drizzle ORM. |
 | Auth | Better Auth: email one-time code, no passwords, no self sign-up |
-| Images | Cloudflare R2 (presigned uploads, compressed to WebP in the browser) |
+| Images | Neon Object Storage, S3-compatible, in the same Neon project (Cloudflare R2 also works). Images are compressed to WebP in the browser and checked by the server. |
 | Maps | Leaflet + OpenStreetMap (free), address search via Nominatim |
 | Email | Resend |
 | Hosting | Vercel (functions in `sin1`, next to Neon Singapore) |
@@ -52,15 +52,15 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
      ```bash
      DATABASE_URL="postgres://…-pooler…/neondb?sslmode=require" npx drizzle-kit migrate
      ```
-2. **Cloudflare R2:** create a bucket.
-   - Make it public through a custom domain (or the r2.dev URL). That URL becomes `R2_PUBLIC_BASE_URL`.
-   - Create an R2 API token with *Object Read & Write* on the bucket.
-   - Add a CORS rule so the browser can upload:
-     ```json
-     [{ "AllowedOrigins": ["https://YOUR-APP-DOMAIN"], "AllowedMethods": ["PUT"], "AllowedHeaders": ["Content-Type"], "MaxAgeSeconds": 3600 }]
-     ```
+2. **Neon Object Storage** (photos and logos), in the same Neon project:
+   - Branch → **Object storage** → **New bucket**, access level **public_read**.
+   - **Connect → Storage** → *Reveal credential*. The ID starts with `nak_live_`, the secret with `nsk_live_`; copy both.
+   - Set `STORAGE_ENDPOINT`, `STORAGE_REGION`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY_ID` and `STORAGE_SECRET_ACCESS_KEY`.
+   - No CORS setup is needed: uploads go through the app's server, which checks each file is a real image.
 3. **Resend:** verify your sending domain, then set `RESEND_API_KEY` and `EMAIL_FROM`.
-4. **Vercel:** import the repository and add every variable from [.env.example](.env.example), with `BETTER_AUTH_URL` / `NEXT_PUBLIC_APP_URL` set to your domain.
+4. **Vercel:** import the repository and add the variables from [.env.example](.env.example).
+   - `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` are optional on Vercel; they default to the production domain.
+   - Every build applies any pending database migrations (`vercel-build`).
    - [vercel.json](vercel.json) pins functions to `sin1` and schedules the Monday attendance report (09:00 IST). Set `CRON_SECRET`.
    - The Hobby (free) plan is meant for non-commercial use. Check Vercel's terms for a chapter app.
 5. **First admin:** with `SETUP_TOKEN` set, open `https://YOUR-APP-DOMAIN/setup`. Afterwards, remove `SETUP_TOKEN`.

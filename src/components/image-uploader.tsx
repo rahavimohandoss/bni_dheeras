@@ -3,14 +3,13 @@
 import { CameraIcon, Loader2Icon } from "lucide-react";
 import { useRef, useState } from "react";
 import { toast } from "sonner";
-import { requestImageUpload } from "@/actions/uploads";
 import { Button } from "@/components/ui/button";
 import { compressImage } from "@/lib/image-compress";
 import { cn } from "@/lib/utils";
 
 /**
- * Pick → compress in the browser → PUT to storage (R2 presigned URL) → hand
- * the stored key to `onUploaded`, which saves it on the server.
+ * Pick → compress in the browser → POST to /api/uploads (stored in the bucket)
+ * → hand the stored key to `onUploaded`, which saves it on the member.
  */
 export function ImageUploader({
   kind,
@@ -33,11 +32,14 @@ export function ImageUploader({
     setBusy(true);
     try {
       const blob = await compressImage(file, kind === "photo" ? 800 : 600);
-      const target = await requestImageUpload({ kind, contentType: blob.type as "image/webp", size: blob.size });
-      if (!target.ok) throw new Error(target.error);
-      const put = await fetch(target.data.uploadUrl, { method: "PUT", body: blob, headers: target.data.headers });
-      if (!put.ok) throw new Error("Upload failed. Check your connection and try again.");
-      const saved = await onUploaded(target.data.key);
+      const res = await fetch(`/api/uploads?kind=${kind}`, {
+        method: "POST",
+        body: blob,
+        headers: { "Content-Type": blob.type },
+      });
+      const data = (await res.json().catch(() => ({}))) as { key?: string; error?: string };
+      if (!res.ok || !data.key) throw new Error(data.error ?? "Upload failed. Check your connection and try again.");
+      const saved = await onUploaded(data.key);
       if (!saved.ok) throw new Error(saved.error ?? "Couldn't save the image.");
       setPreview(URL.createObjectURL(blob));
       toast.success(`${label} updated.`);
