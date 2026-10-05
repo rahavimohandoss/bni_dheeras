@@ -15,10 +15,10 @@ The design, loophole list and decisions are in [docs/PLAN.md](docs/PLAN.md).
 | App | Next.js 16.3 (App Router, Turbopack, React Compiler), React 19, TypeScript |
 | UI | Tailwind CSS v4, shadcn/ui (Radix), BNI brand colours |
 | Database | Neon Postgres in production; [PGlite](https://pglite.dev) locally. Same `pg` driver for both, via Drizzle ORM. |
-| Auth | Better Auth: email one-time code, no passwords, no self sign-up |
+| Auth | Better Auth: one-time login links that the Secretary/Admin sends on WhatsApp. No passwords, no email service, no self sign-up. |
 | Images | Neon Object Storage, S3-compatible, in the same Neon project (Cloudflare R2 also works). Images are compressed to WebP in the browser and checked by the server. |
 | Maps | Leaflet + OpenStreetMap (free), address search via Nominatim |
-| Email | Resend |
+| Email (optional) | Resend, only for email copies of alerts; everything also appears in-app |
 | Hosting | Vercel (functions in `sin1`, next to Neon Singapore) |
 
 ## Run it locally
@@ -34,7 +34,16 @@ npm run seed                    # optional: demo chapter (12 members, venue, mee
 npm run dev                     # http://localhost:3000
 ```
 
-- **Signing in locally:** without `RESEND_API_KEY`, the 6-digit login code is printed in the `npm run dev` terminal. The demo admin is `admin@dheeras.test`.
+- **Signing in locally:**
+  - Open `/setup`, enter `SETUP_TOKEN` from `.env.local` and `admin@dheeras.test` (the demo admin), then tap **Sign in now**.
+  - To sign in as another member: Admin → Members → **Login link**.
+
+### How members sign in
+
+- **Admin creates the link:** the Secretary/Admin opens Admin → Members and taps **Login link** next to a member, then **Send on WhatsApp**. WhatsApp opens with a message to that member's number.
+- **The link:** single-use, valid for 24 hours. Its secret part is after `#`, so WhatsApp's link preview can't use it up. The member taps **Sign in** on the page it opens and stays signed in for 90 days on that phone.
+- **Members can ask for one:** on the sign-in page a member can tap *Request a login link*. This notifies the Secretary and admins in the app.
+- **Emergency:** if the only admin can't sign in, set `SETUP_TOKEN` in Vercel, open `/setup` and use **Admin recovery** to get a link. Remove the token afterwards.
 - **Without demo data:** open `/setup`, enter `SETUP_TOKEN` and create the first admin.
 - **Dev-only test tools:** on the Check in page you can paste a kiosk token and pretend to be at the venue. They are compiled out of production builds, and the server still runs every check.
 
@@ -58,7 +67,7 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
    - Set `STORAGE_ENDPOINT`, `STORAGE_REGION`, `STORAGE_BUCKET`, `STORAGE_ACCESS_KEY_ID` and `STORAGE_SECRET_ACCESS_KEY`.
    - Check them before deploying: put the values in `.env` and run `node scripts/check-storage.mjs <bucket>`.
    - No CORS setup is needed: uploads (`/api/uploads`) and reads (`/api/media`) both go through the app, which checks each upload is a real image.
-3. **Resend:** verify your sending domain, then set `RESEND_API_KEY` and `EMAIL_FROM`.
+3. **Email (optional):** sign-in doesn't need email. Only if you want email copies of alerts and the Monday report, set `RESEND_API_KEY` and `EMAIL_FROM`.
 4. **Vercel:** import the repository and add the variables from [.env.example](.env.example).
    - `BETTER_AUTH_URL` and `NEXT_PUBLIC_APP_URL` are optional on Vercel; they default to the production domain.
    - Every build applies any pending database migrations (`vercel-build`).

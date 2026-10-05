@@ -7,7 +7,7 @@
 2. **Location:** members save their business location. Any member can see all the others sorted nearest → farthest from their own location, in a list view and a map view.
 
 > **Confirmed decisions (5 Oct 2026). Where the draft below differs, these win:**
-> - **D1 Login:** email one-time code.
+> - **D1 Login:** one-time login links that the Secretary/Admin sends on WhatsApp (changed from email codes; no email service needed).
 > - **D2 Maps:** free Leaflet + OpenStreetMap, with Nominatim address search (no Google Maps).
 > - **D3 Hosting:** Vercel free (Hobby) plan.
 > - **D4 Selfie check:** not used.
@@ -18,7 +18,7 @@
 
 ## 0. Summary
 
-- **Stack:** Next.js 16.3 + TypeScript, Neon Postgres + Drizzle, Neon Object Storage for images, Better Auth (email OTP), Tailwind v4 + shadcn/ui in BNI colours. Ships as an installable PWA.
+- **Stack:** Next.js 16.3 + TypeScript, Neon Postgres + Drizzle, Neon Object Storage for images, Better Auth (WhatsApp login links), Tailwind v4 + shadcn/ui in BNI colours. Ships as an installable PWA.
 - **Attendance:** the QR on the venue screen changes every 15 seconds, and members scan it inside the app. A check-in counts only if all seven checks in §4.2 pass. The main ones: the request comes from that member's single approved phone, the QR is under 30 seconds old, and the phone's GPS puts it at the venue.
 - **"One person, many logins" is blocked by design.** A phone can belong to only one member, and each member has only one approved phone. Logging into a second account on the same phone checks nobody in, and a new phone needs a person to approve it.
 - **Cheating that software can't block is made visible:**
@@ -46,14 +46,14 @@
 | Framework | **Next.js 16.3** (latest stable on npm: 16.3.8), App Router, React 19, TypeScript, Turbopack | Server Components + Server Actions; `proxy.ts` gates routes. Runs on Node 22 LTS. |
 | Database | **Neon Postgres** in AWS Singapore, the nearest region (Neon has no India region) | `main` + `dev` branches; point-in-time restore |
 | ORM | Drizzle ORM + drizzle-kit migrations, `@neondatabase/serverless` | |
-| Auth | Better Auth with email OTP and sessions stored in the database | Roles come from our own `role_assignments` table |
+| Auth | Better Auth one-time login links (single-use, 24 h, stored hashed), sent by the Secretary/Admin on WhatsApp; sessions stored in the database | Roles come from our own `role_assignments` table |
 | Images | **Neon Object Storage** (S3-compatible, same Neon project; R2 also works). Images are compressed to WebP in the browser, then uploaded through the app server, which checks the file type. | Free plan includes 5 GB |
 | UI | Tailwind CSS v4 + shadcn/ui; BNI Red `#CF2030`, Granite Grey `#64666A`; Helvetica Neue with Arial fallback | Follows BNI brand guidelines |
 | App shell | Installable PWA (manifest, icons, "Add to Home Screen") | No app store needed |
 | Maps | Leaflet + OpenStreetMap tiles; address search through Nominatim (free) | Decision D2 |
 | QR | `qrcode` to draw the QR; a JS/WASM decoder (zxing-wasm) for the in-app scanner | Works on iPhone and Android |
 | PDF | `@react-pdf/renderer` in a route handler | For the dance card |
-| Email | Resend | OTP, alerts, Monday report |
+| Email | Resend (optional) | Email copies of alerts and the Monday report only |
 | Spam protection | Cloudflare Turnstile | On public forms |
 | Hosting | Vercel (Hobby), with functions pinned to `sin1` next to the database | Decision D3 |
 | Quality | Zod validation; Vitest for rules, tokens and distance; Playwright end-to-end tests with mocked camera and GPS; Sentry | |
@@ -351,7 +351,7 @@ Better Auth adds its own tables (user, session, account, verification).
 
 | Phase | Delivers | Done when |
 |---|---|---|
-| 0. Foundation | App skeleton, BNI theme, Neon + Drizzle, email OTP login, roles per term, image uploads, PWA, CI/CD, roster import (CSV or BNI Connect roster export) | All members can log in and add a photo |
+| 0. Foundation | App skeleton, BNI theme, Neon + Drizzle, WhatsApp login links, roles per term, image uploads, PWA, CI/CD, roster import (CSV or BNI Connect roster export) | All members can log in and add a photo |
 | 1. Attendance | Venues, meetings, device approval, kiosk, scan check-in, LVH board, fallbacks, leave + substitutes, finalize + headcount, PALMS summary, counter, alerts, Monday report, audit log | Every row T1–T16 tested, and 2 meetings shadow-run alongside the current method with matching results |
 | 2. Profile + Location | Profile editor, directory, location setup, Near me list + map | Members can find each other nearest → farthest |
 | 3. Calendar + Recognitions | Calendar, slots, iCal feed; award entry, home screen winners, history | The Head Table publishes a week's awards |
@@ -380,7 +380,7 @@ Attendance comes first because it's the riskiest feature and needs real meetings
 
 ## 12. Inputs needed to start
 
-- **Accounts:** Neon (database + Object Storage), Vercel, Resend (with a sending domain); optional Cloudflare Turnstile.
+- **Accounts:** Neon (database + Object Storage), Vercel; optional Resend (email copies) and Cloudflare Turnstile.
 - **Domain:** the domain or sub-domain for the app.
 - **Roster:** BNI Connect Chapter Roster export or a CSV with name, email, phone, company and category.
 - **Current-term role holders:** President, VP, Secretary/Treasurer, LVH team, GARAM, coordinators.

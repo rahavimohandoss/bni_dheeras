@@ -17,6 +17,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { LoginLinkButton } from "./login-link-button";
 
 type Row = {
   id: string;
@@ -91,6 +92,7 @@ export function MembersAdmin({ members, meId }: { members: Row[]; meId: string }
                   <Button variant="ghost" size="sm" onClick={() => setEditing(m)}>
                     Edit
                   </Button>
+                  {m.status === "active" ? <LoginLinkButton memberId={m.id} name={m.fullName} /> : null}
                   {m.id !== meId ? <StatusToggle id={m.id} status={m.status} /> : null}
                 </TableCell>
               </TableRow>
@@ -137,7 +139,7 @@ function MemberDialog({ row, onClose }: { row: Row | null; onClose: () => void }
     start(async () => {
       const res = row ? await updateMember(row.id, input) : await addMember(input);
       if (!res.ok) return void toast.error(res.error);
-      toast.success(row ? "Member updated." : "Member added. They can sign in with their email now.");
+      toast.success(row ? "Member updated." : "Member added. Send them a login link on WhatsApp.");
       onClose();
     });
   }
@@ -146,7 +148,7 @@ function MemberDialog({ row, onClose }: { row: Row | null; onClose: () => void }
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{row ? `Edit ${row.fullName}` : "Add member"}</DialogTitle>
-          <DialogDescription>Members sign in with a code sent to this email.</DialogDescription>
+          <DialogDescription>Members sign in with a one-time link you send on WhatsApp, so the mobile number matters.</DialogDescription>
         </DialogHeader>
         <form action={submit} className="grid gap-3">
           <Field name="fullName" label="Full name" defaultValue={row?.fullName} required />

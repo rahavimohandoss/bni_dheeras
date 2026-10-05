@@ -1,125 +1,74 @@
 "use client";
 
-import { Loader2Icon, MailIcon } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { toast } from "sonner";
+import { Loader2Icon, MessageCircleIcon } from "lucide-react";
+import { useState, useTransition } from "react";
+import { requestLoginLink } from "@/actions/login";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { authClient } from "@/lib/auth-client";
 
-export function LoginForm() {
-  const router = useRouter();
-  const [step, setStep] = useState<"email" | "code">("email");
-  const [email, setEmail] = useState("");
-  const [code, setCode] = useState("");
-  const [busy, setBusy] = useState(false);
-
-  async function sendCode(e?: React.FormEvent) {
-    e?.preventDefault();
-    const clean = email.trim().toLowerCase();
-    if (!clean) return;
-    setBusy(true);
-    const { error } = await authClient.emailOtp.sendVerificationOtp({ email: clean, type: "sign-in" });
-    setBusy(false);
-    if (error) {
-      toast.error(error.status === 429 ? "Too many requests. Wait a minute and try again." : error.message ?? "Couldn't send the code.");
-      return;
-    }
-    setEmail(clean);
-    setStep("code");
-    toast.success("If this email is registered, a 6-digit code is on its way.");
-  }
-
-  async function verify(e: React.FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    const { error } = await authClient.signIn.emailOtp({ email, otp: code.trim() });
-    if (error) {
-      setBusy(false);
-      toast.error(
-        error.status === 429
-          ? "Too many attempts. Wait a minute and try again."
-          : error.message ?? "That code didn't work.",
-      );
-      return;
-    }
-    router.replace("/");
-    router.refresh();
-  }
+export function LoginForm({ error }: { error: string | null }) {
+  const [phone, setPhone] = useState("");
+  const [sent, setSent] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const [pending, start] = useTransition();
 
   return (
     <Card className="w-full max-w-sm">
       <CardHeader>
-        <CardTitle>{step === "email" ? "Sign in" : "Enter your code"}</CardTitle>
+        <CardTitle>Sign in</CardTitle>
         <CardDescription>
-          {step === "email" ? (
-            "We'll email you a 6-digit code. No password needed."
-          ) : (
-            <>
-              Sent to <span className="font-medium text-foreground">{email}</span>. It expires in 10 minutes.
-            </>
-          )}
+          Members sign in with a one-time login link that the Secretary sends on WhatsApp. Open it on the phone you use
+          for check-in; you&apos;ll stay signed in.
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        {step === "email" ? (
-          <form onSubmit={sendCode} className="space-y-4">
+      <CardContent className="space-y-4">
+        {error ? (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        ) : null}
+        {sent ? (
+          <Alert>
+            <MessageCircleIcon />
+            <AlertDescription>
+              Request sent. If this number is registered, the Secretary will send your login link on WhatsApp.
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              setProblem(null);
+              start(async () => {
+                const res = await requestLoginLink(phone);
+                if (res.ok) setSent(true);
+                else setProblem(res.error);
+              });
+            }}
+          >
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label htmlFor="phone">Don&apos;t have a link? Your registered mobile number</Label>
               <Input
-                id="email"
-                type="email"
-                autoComplete="email"
-                inputMode="email"
+                id="phone"
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
                 required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@business.com"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="98400 12345"
                 className="h-11 text-base"
               />
             </div>
-            <Button type="submit" className="h-11 w-full text-base" disabled={busy}>
-              {busy ? <Loader2Icon className="animate-spin" /> : <MailIcon />}
-              Email me a code
+            {problem ? <p className="text-sm text-destructive">{problem}</p> : null}
+            <Button type="submit" className="h-11 w-full text-base" disabled={pending}>
+              {pending ? <Loader2Icon className="animate-spin" /> : <MessageCircleIcon />}
+              Request a login link
             </Button>
-          </form>
-        ) : (
-          <form onSubmit={verify} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="code">6-digit code</Label>
-              <Input
-                id="code"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                pattern="[0-9]{6}"
-                maxLength={6}
-                required
-                autoFocus
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-                className="h-12 text-center font-mono text-2xl tracking-[0.5em]"
-              />
-            </div>
-            <Button type="submit" className="h-11 w-full text-base" disabled={busy || code.length !== 6}>
-              {busy ? <Loader2Icon className="animate-spin" /> : null}
-              Sign in
-            </Button>
-            <div className="flex justify-between text-sm">
-              <button type="button" className="text-muted-foreground underline" onClick={() => setStep("email")}>
-                Change email
-              </button>
-              <button
-                type="button"
-                className="text-muted-foreground underline"
-                disabled={busy}
-                onClick={() => sendCode()}
-              >
-                Resend code
-              </button>
-            </div>
           </form>
         )}
       </CardContent>
