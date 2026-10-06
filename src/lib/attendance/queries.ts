@@ -12,11 +12,11 @@ import {
 } from "@/db/schema";
 import { subtractMonths, toIstDateInput } from "@/lib/time";
 
-export type RecordCounts = { records: number; recognitions: number };
+/** What is connected to a meeting: PALMS (attendance rows) and recognitions (all, and how many published). */
+export type RecordCounts = { records: number; recognitions: number; published: number };
 
-/** How much would go with each meeting if it were deleted: attendance rows and recognitions. */
 export async function recordCounts(meetingIds: string[]): Promise<Map<string, RecordCounts>> {
-  const counts = new Map<string, RecordCounts>(meetingIds.map((id) => [id, { records: 0, recognitions: 0 }]));
+  const counts = new Map<string, RecordCounts>(meetingIds.map((id) => [id, { records: 0, recognitions: 0, published: 0 }]));
   if (meetingIds.length === 0) return counts;
   const [records, recognitions] = await Promise.all([
     db
@@ -24,10 +24,14 @@ export async function recordCounts(meetingIds: string[]): Promise<Map<string, Re
       .from(attendance)
       .where(inArray(attendance.meetingId, meetingIds))
       .groupBy(attendance.meetingId),
-    db.select({ id: award.meetingId, n: count() }).from(award).where(inArray(award.meetingId, meetingIds)).groupBy(award.meetingId),
+    db
+      .select({ id: award.meetingId, n: count(), published: sql<number>`count(*) filter (where ${award.published})::int` })
+      .from(award)
+      .where(inArray(award.meetingId, meetingIds))
+      .groupBy(award.meetingId),
   ]);
   for (const r of records) counts.get(r.id)!.records = r.n;
-  for (const r of recognitions) counts.get(r.id)!.recognitions = r.n;
+  for (const r of recognitions) Object.assign(counts.get(r.id)!, { recognitions: r.n, published: r.published });
   return counts;
 }
 

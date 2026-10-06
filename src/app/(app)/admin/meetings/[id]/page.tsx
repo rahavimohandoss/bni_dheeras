@@ -9,7 +9,7 @@ import { db } from "@/db";
 import { meeting, venue } from "@/db/schema";
 import { recordCounts } from "@/lib/attendance/queries";
 import { requireCapPage } from "@/lib/session";
-import { formatDate, toIstDateInput, toIstTimeInput } from "@/lib/time";
+import { formatDate, formatTime, toIstDateInput, toIstTimeInput } from "@/lib/time";
 import { restoreMeeting } from "@/actions/meetings";
 import { ConfirmButton } from "@/components/confirm-button";
 import { DeleteMeetingButton } from "@/components/delete-meeting-button";
@@ -19,7 +19,7 @@ import { MeetingForm } from "../meeting-form";
 export const metadata: Metadata = { title: "Edit meeting" };
 
 export default async function EditMeetingPage({ params }: PageProps<"/admin/meetings/[id]">) {
-  const me = await requireCapPage("meetings.manage");
+  await requireCapPage("meetings.manage");
   const { id } = await params;
   const [m] = await db.select().from(meeting).where(eq(meeting.id, id));
   if (!m) notFound();
@@ -28,13 +28,11 @@ export default async function EditMeetingPage({ params }: PageProps<"/admin/meet
     recordCounts([m.id]).then((c) => c.get(m.id)!),
   ]);
   const opensBefore = Math.round((m.startsAt.getTime() - m.checkinOpensAt.getTime()) / 60_000);
-  // A meeting with attendance is PALMS history: only the President or an admin can delete it.
-  const canDelete = me.fullAccess || (counts.records === 0 && m.status !== "finalized");
 
   return (
     <PageContainer>
       <PageHeader
-        title={`${m.title} · ${formatDate(m.startsAt)}`}
+        title={`${m.title} · ${formatDate(m.startsAt)}, ${formatTime(m.startsAt)}`}
         back={{ href: "/admin/meetings", label: "Meetings" }}
         actions={
           <>
@@ -54,16 +52,14 @@ export default async function EditMeetingPage({ params }: PageProps<"/admin/meet
                 destructive={false}
               />
             ) : null}
-            {canDelete ? (
-              <DeleteMeetingButton
-                meetingId={m.id}
-                when={formatDate(m.startsAt)}
-                {...counts}
-                finalized={m.status === "finalized"}
-                redirectTo="/admin/meetings"
-                variant="outline"
-              />
-            ) : null}
+            <DeleteMeetingButton
+              meetingId={m.id}
+              when={`${formatDate(m.startsAt)} · ${formatTime(m.startsAt)}`}
+              {...counts}
+              finalized={m.status === "finalized"}
+              redirectTo="/admin/meetings"
+              variant="outline"
+            />
           </>
         }
       />

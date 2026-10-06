@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, ne } from "drizzle-orm";
+import { and, count, eq, gt, lt, ne } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
@@ -53,6 +53,24 @@ async function resolveTimes(data: z.output<typeof timesSchema>) {
   return { startsAt, endsAt, checkinOpensAt: addMinutes(startsAt, -opensBefore) };
 }
 
+/** One meeting per start time: a copy at the same moment only confuses PALMS and recognitions. */
+async function assertNoClash(startsAt: Date, exceptId?: string) {
+  const [clash] = await db
+    .select({ id: meeting.id })
+    .from(meeting)
+    .where(
+      and(
+        // Within the same minute counts as the same time.
+        gt(meeting.startsAt, new Date(startsAt.getTime() - 60_000)),
+        lt(meeting.startsAt, new Date(startsAt.getTime() + 60_000)),
+        ne(meeting.status, "cancelled"),
+        exceptId ? ne(meeting.id, exceptId) : undefined,
+      ),
+    )
+    .limit(1);
+  if (clash) throw new UserError("There's already a meeting at that date and time. Open it from Admin → Meetings instead.");
+}
+
 async function checkVenue(mode: string, venueId: string | null) {
   if (mode === "online") return null;
   if (!venueId) throw new UserError("Choose a venue for an in-person meeting.");
@@ -66,6 +84,7 @@ export async function createMeeting(input: z.input<typeof meetingSchema>): Promi
     const me = await assertCap("meetings.manage");
     const data = meetingSchema.parse(input);
     const times = await resolveTimes(data);
+    await assertNoClash(times.startsAt);
     const venueId = await checkVenue(data.mode, data.venueId);
     const [row] = await db
       .insert(meeting)
@@ -113,15 +132,20 @@ export async function generateWeekly(input: z.input<typeof weeklySchema>): Promi
       graceMinutes: null,
       qrSecret: newMeetingSecret(),
     }));
-    const taken = new Set(
-      (
-        await db
-          .select({ startsAt: meeting.startsAt })
-          .from(meeting)
-          .where(and(inArray(meeting.startsAt, planned.map((p) => p.startsAt)), ne(meeting.status, "cancelled")))
-      ).map((m) => m.startsAt.getTime()),
-    );
-    const rows = planned.filter((p) => !taken.has(p.startsAt.getTime()));
+    // Weeks that already have a meeting at that time (within the same minute) are skipped.
+    const taken = (
+      await db
+        .select({ startsAt: meeting.startsAt })
+        .from(meeting)
+        .where(
+          and(
+            gt(meeting.startsAt, new Date(planned[0].startsAt.getTime() - 60_000)),
+            lt(meeting.startsAt, new Date(planned[planned.length - 1].startsAt.getTime() + 60_000)),
+            ne(meeting.status, "cancelled"),
+          ),
+        )
+    ).map((m) => m.startsAt.getTime());
+    const rows = planned.filter((p) => !taken.some((t) => Math.abs(t - p.startsAt.getTime()) < 60_000));
     if (rows.length) await db.insert(meeting).values(rows);
     await audit({ actorId: me.id, action: "meeting.generate_weekly", entity: "meeting", after: { ...data, created: rows.length } });
     refresh();
@@ -137,6 +161,7 @@ export async function updateMeeting(id: string, input: z.input<typeof meetingSch
     if (!before) throw new UserError("Meeting not found.");
     if (before.status !== "scheduled") throw new UserError("A finalized or cancelled meeting can't be edited.");
     const times = await resolveTimes(data);
+    await assertNoClash(times.startsAt, before.id);
     const venueId = await checkVenue(data.mode, data.venueId);
     await db
       .update(meeting)
@@ -185,6 +210,7 @@ export async function restoreMeeting(id: string): Promise<ActionResult> {
     const [m] = await db.select().from(meeting).where(eq(meeting.id, z.uuid().parse(id)));
     if (!m || m.status !== "cancelled") throw new UserError("Only a cancelled meeting can be restored.");
     if (m.endsAt <= new Date()) throw new UserError("This meeting is already over.");
+    await assertNoClash(m.startsAt, m.id);
     await db.update(meeting).set({ status: "scheduled", notes: null }).where(eq(meeting.id, m.id));
     await audit({ actorId: me.id, action: "meeting.restore", entity: "meeting", entityId: m.id });
     refresh();
@@ -192,10 +218,6 @@ export async function restoreMeeting(id: string): Promise<ActionResult> {
   });
 }
 
-/**
- * Removes a meeting created by mistake. Meetings with attendance or
- * recognitions are history, so they can only be cancelled.
- */
 /**
  * Clears what was recorded at a meeting but keeps the meeting, so it can be
  * picked and used again: attendance, the check-in log, absence follow-ups,
@@ -244,35 +266,34 @@ export async function clearMeetingAttendance(id: string, reason?: string): Promi
 }
 
 /**
- * Deletes a meeting and everything recorded for it: attendance, check-in
- * attempts, leave, substitutes, follow-ups and recognitions. A meeting with
- * attendance (or a finalized one) is PALMS history, so only the President or
- * an admin can delete it, with a reason. The audit log keeps what was removed.
+ * Deletes a meeting. Its PALMS and recognitions are connected to it and would
+ * go with it, so a meeting with PALMS (attendance, or finalized) or published
+ * recognitions can't be deleted: clear those first (Attendance & PALMS →
+ * Clear PALMS, Weekly recognitions → Clear all). Draft recognitions, leave and
+ * substitute requests go with the meeting; the audit log keeps the drafts.
  */
-export async function deleteMeeting(id: string, reason?: string): Promise<ActionResult> {
+export async function deleteMeeting(id: string): Promise<ActionResult> {
   return runAction(async () => {
     const me = await assertCap("meetings.manage");
     const [m] = await db.select().from(meeting).where(eq(meeting.id, z.uuid().parse(id)));
     if (!m) throw new UserError("Meeting not found.");
-    const [records, awards] = await Promise.all([
-      db
-        .select({ memberId: attendance.memberId, status: attendance.status, method: attendance.method, checkedInAt: attendance.checkedInAt })
-        .from(attendance)
-        .where(eq(attendance.meetingId, m.id)),
+    const [[{ records }], awards] = await Promise.all([
+      db.select({ records: count() }).from(attendance).where(eq(attendance.meetingId, m.id)),
       db
         .select({ awardTypeId: award.awardTypeId, memberId: award.memberId, published: award.published })
         .from(award)
         .where(eq(award.meetingId, m.id)),
     ]);
-    const why = z.string().trim().max(300).parse(reason ?? "");
-    if (records.length > 0 || m.status === "finalized") {
-      if (!me.fullAccess) throw new UserError("This meeting has attendance. Only the President or an admin can delete it.");
-      if (why.length < 3) throw new UserError("Give a reason for deleting a meeting that has attendance.");
+    if (records > 0 || m.status === "finalized") {
+      throw new UserError("This meeting has PALMS. Clear the PALMS first (Attendance & PALMS → Clear PALMS), then delete it.");
+    }
+    if (awards.some((a) => a.published)) {
+      throw new UserError("This meeting has published recognitions. Clear them first (Weekly recognitions → Clear all), then delete it.");
     }
     await db.transaction(async (tx) => {
       // Calendar slots linked to it (e.g. a feature presentation) stay on the calendar.
       await tx.update(calendarEvent).set({ meetingId: null }).where(eq(calendarEvent.meetingId, m.id));
-      // Everything else recorded for the meeting goes with it (ON DELETE CASCADE).
+      // Draft recognitions, leave and substitute requests go with it (ON DELETE CASCADE).
       await tx.delete(meeting).where(eq(meeting.id, m.id));
       await audit(
         {
@@ -280,8 +301,7 @@ export async function deleteMeeting(id: string, reason?: string): Promise<Action
           action: "meeting.delete",
           entity: "meeting",
           entityId: m.id,
-          before: { title: m.title, startsAt: m.startsAt, status: m.status, attendance: records, recognitions: awards },
-          reason: why || null,
+          before: { title: m.title, startsAt: m.startsAt, status: m.status, draftRecognitions: awards },
         },
         tx,
       );

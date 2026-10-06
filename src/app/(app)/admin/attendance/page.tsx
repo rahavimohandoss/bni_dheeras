@@ -4,6 +4,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { clearMeetingAttendance } from "@/actions/meetings";
 import { ConfirmButton } from "@/components/confirm-button";
+import { DeleteMeetingButton } from "@/components/delete-meeting-button";
 import { EmptyState, PageContainer, PageHeader } from "@/components/page-header";
 import { Pagination } from "@/components/pagination";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +14,7 @@ import { attendance, meeting, member } from "@/db/schema";
 import { recordCounts } from "@/lib/attendance/queries";
 import { pageFromParam, pageHref, paginate } from "@/lib/pagination";
 import { requireMember } from "@/lib/session";
-import { formatDate } from "@/lib/time";
+import { formatDate, formatTime } from "@/lib/time";
 
 export const metadata: Metadata = { title: "Attendance" };
 
@@ -39,7 +40,7 @@ export default async function AttendanceAdminPage({ searchParams }: PageProps<"/
     .limit(PAGE_SIZE)
     .offset(offset);
   const counts = await recordCounts(rows.map((r) => r.meeting.id));
-  // Clearing attendance (the meeting stays) is PALMS history: President or admin only.
+  // Clearing PALMS (the meeting stays) is PALMS history: President or admin only.
   const canClear = (status: string, records: number) => me.fullAccess && (records > 0 || status === "finalized");
   const canEditMeeting = me.caps.has("meetings.manage");
 
@@ -68,14 +69,15 @@ export default async function AttendanceAdminPage({ searchParams }: PageProps<"/
                 <TableRow key={r.meeting.id}>
                   <TableCell>
                     {canEditMeeting ? (
-                      // The meeting's own page has Cancel and Delete (removes the whole meeting).
                       <Link href={`/admin/meetings/${r.meeting.id}`} className="font-medium hover:underline">
                         {formatDate(r.meeting.startsAt)}
                       </Link>
                     ) : (
                       <div className="font-medium">{formatDate(r.meeting.startsAt)}</div>
                     )}
-                    <div className="text-xs text-muted-foreground">{r.meeting.title}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {formatTime(r.meeting.startsAt)} · {r.meeting.title}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge
@@ -105,14 +107,23 @@ export default async function AttendanceAdminPage({ searchParams }: PageProps<"/
                     {canClear(r.meeting.status, counts.get(r.meeting.id)!.records) ? (
                       <span className="ml-1">
                         <ConfirmButton
-                          label="Clear"
-                          title={`Clear the attendance for ${formatDate(r.meeting.startsAt)}?`}
+                          label="Clear PALMS"
+                          title={`Clear the PALMS for ${formatDate(r.meeting.startsAt)}?`}
                           description={clearDescription(counts.get(r.meeting.id)!.records, r.meeting.status === "finalized")}
-                          success="Attendance cleared. The meeting is still on the schedule."
+                          success="PALMS cleared. The meeting is still on the schedule."
                           action={clearMeetingAttendance.bind(null, r.meeting.id)}
                           requireReason="Reason (e.g. test check-ins)"
                         />
                       </span>
+                    ) : null}
+                    {canEditMeeting ? (
+                      <DeleteMeetingButton
+                        meetingId={r.meeting.id}
+                        when={`${formatDate(r.meeting.startsAt)} · ${formatTime(r.meeting.startsAt)}`}
+                        {...counts.get(r.meeting.id)!}
+                        finalized={r.meeting.status === "finalized"}
+                        size="sm"
+                      />
                     ) : null}
                   </TableCell>
                 </TableRow>
@@ -129,7 +140,7 @@ export default async function AttendanceAdminPage({ searchParams }: PageProps<"/
 function clearDescription(records: number, finalized: boolean) {
   const what = records === 1 ? "1 attendance record" : `${records} attendance records`;
   return (
-    `This removes ${what}, the check-in log, follow-ups, the visitor count and the headcount` +
+    `This removes the PALMS (${what}), the check-in log, follow-ups, the visitor count and the headcount` +
     `${finalized ? ", and opens the meeting again" : ""}. The meeting stays on the schedule, so attendance can be taken again. ` +
     "Recognitions aren't touched. The audit log keeps a copy."
   );

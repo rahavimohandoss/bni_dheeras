@@ -5,7 +5,7 @@ import { db } from "@/db";
 import { award, awardType, meeting, member } from "@/db/schema";
 import { ensureDefaults } from "@/lib/defaults";
 import { requireCapPage } from "@/lib/session";
-import { daysFromNow, formatDate } from "@/lib/time";
+import { daysFromNow, formatDate, formatTime } from "@/lib/time";
 import { AwardsEditor } from "./awards-editor";
 
 export const metadata: Metadata = { title: "Weekly recognitions" };
@@ -40,7 +40,10 @@ export default async function AwardsAdminPage({ searchParams }: PageProps<"/admi
         <AwardsEditor
           // Starts over when the saved winners change (e.g. after Delete).
           key={`${selected.id}:${existing.map((e) => `${e.awardTypeId}=${e.memberId}`).join(",")}`}
-          meetings={relevant.map((m) => ({ id: m.id, label: `${formatDate(m.startsAt)} · ${m.title}` }))}
+          meetings={relevant.map((m) => ({
+            id: m.id,
+            label: `${formatDate(m.startsAt)}, ${formatTime(m.startsAt)} · ${m.title}`,
+          }))}
           meetingId={selected.id}
           types={types.map((t) => ({
             id: t.id,
