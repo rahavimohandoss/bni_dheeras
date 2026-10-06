@@ -4,7 +4,17 @@ import { isToday, nextMonth } from "@/lib/celebrations";
 import { toCsv } from "@/lib/csv";
 import { normalizePhone, parseLoginId, parseLooseDate, whatsappLink } from "@/lib/format";
 import { pageFromParam, pageHref, pageItems, paginate } from "@/lib/pagination";
-import { CAPABILITIES, ROLE_KEYS, capabilitiesFor, capsCover, hasFullAccess, roleConflict } from "@/lib/permissions";
+import {
+  CAPABILITIES,
+  CAPABILITY_LABELS,
+  ROLE_KEYS,
+  type Role,
+  capabilitiesFor,
+  capsCover,
+  hasFullAccess,
+  roleCapabilities,
+  roleConflict,
+} from "@/lib/permissions";
 import { istToDate, startOfIstDay, toIstDateInput, toIstTimeInput } from "@/lib/time";
 import { youtubeEmbedUrl } from "@/lib/video";
 
@@ -26,16 +36,23 @@ describe("IST time helpers", () => {
 describe("separation of duties", () => {
   it("blocks one person from approving devices AND doing manual check-ins", () => {
     expect(roleConflict(["lvh", "attendance_coordinator"])).not.toBeNull();
-    expect(roleConflict(["lvh_captain", "secretary_treasurer"])).not.toBeNull();
-    expect(roleConflict(["lvh", "lvh_captain"])).toBeNull();
-    expect(roleConflict(["attendance_coordinator", "membership_committee"])).toBeNull();
+    expect(roleConflict(["lvh", "secretary_treasurer"])).not.toBeNull();
+    expect(roleConflict(["lvh", "vice_president"])).toBeNull();
+    expect(roleConflict(["attendance_coordinator", "secretary_treasurer"])).toBeNull();
+  });
+
+  it("keeps the chapter's five roles, and roles removed from the app give nothing", () => {
+    expect(ROLE_KEYS).toEqual(["president", "vice_president", "secretary_treasurer", "lvh", "attendance_coordinator"]);
+    expect(capabilitiesFor(["lvh_captain" as Role], false).size).toBe(0);
+    expect(roleCapabilities("lvh")).toEqual(["kiosk.run", "attendance.manual"]);
+    for (const cap of CAPABILITIES) expect(CAPABILITY_LABELS[cap]).toBeTruthy();
   });
 
   it("admin gets every capability; plain members get none", () => {
     expect(capabilitiesFor([], true).has("settings.manage")).toBe(true);
     expect(capabilitiesFor([], false).size).toBe(0);
     expect(capabilitiesFor(["lvh"], false).has("devices.approve")).toBe(false);
-    expect(ROLE_KEYS.length).toBeGreaterThan(5);
+    expect(ROLE_KEYS.length).toBe(5);
   });
 
   it("the President has exactly the same access as Admin", () => {
@@ -54,9 +71,9 @@ describe("separation of duties", () => {
     const president = capabilitiesFor(["president"], false);
     expect(vp.has("members.reset_password")).toBe(true);
     expect(secretary.has("members.reset_password")).toBe(true);
-    expect(capabilitiesFor(["lvh_captain"], false).has("members.reset_password")).toBe(false);
+    expect(capabilitiesFor(["lvh"], false).has("members.reset_password")).toBe(false);
     expect(capsCover(vp, capabilitiesFor([], false))).toBe(true);
-    expect(capsCover(vp, capabilitiesFor(["education_coordinator"], false))).toBe(true);
+    expect(capsCover(vp, capabilitiesFor(["lvh"], false))).toBe(false); // VP can't mark attendance by hand
     expect(capsCover(vp, secretary)).toBe(false);
     expect(capsCover(vp, president)).toBe(false);
     expect(capsCover(secretary, vp)).toBe(true);

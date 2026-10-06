@@ -79,7 +79,7 @@ export async function registerSubstitute(input: z.input<typeof subSchema>): Prom
         set: { name: data.name, phone, business: data.business, arrivedAt: null, confirmedById: null },
       });
     await audit({ actorId: me.id, action: "substitute.register", entity: "meeting", entityId: m.id, after: { name: data.name } });
-    const team = await membersWithRoles(["vice_president", "lvh_captain", "lvh"]);
+    const team = await membersWithRoles(["vice_president", "lvh"]);
     await notify(team, {
       title: `Substitute for ${me.fullName}: ${data.name}`,
       body: `${m.title}, ${formatDate(m.startsAt)}. Confirm at the door when they arrive.`,

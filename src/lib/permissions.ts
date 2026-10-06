@@ -7,14 +7,8 @@ export const ROLES = {
   president: "President",
   vice_president: "Vice President",
   secretary_treasurer: "Secretary / Treasurer",
-  lvh_captain: "LVH Captain",
   lvh: "LVH Team",
   attendance_coordinator: "Attendance Coordinator",
-  membership_committee: "Membership Committee (GARAM)",
-  education_coordinator: "Education Slot Coordinator",
-  feature_presentation_coordinator: "Feature Presentation Coordinator",
-  events_coordinator: "Events & BBB Coordinator",
-  training_coordinator: "Training Coordinator",
 } as const;
 
 export type Role = keyof typeof ROLES;
@@ -30,10 +24,6 @@ export const CAPABILITIES = [
   "meetings.manage",
   "awards.manage",
   "calendar.manage",
-  "calendar.manage.feature_presentation",
-  "calendar.manage.education_slot",
-  "calendar.manage.event",
-  "calendar.manage.training",
   "feedback.manage",
   "celebrations.view",
   "members.manage",
@@ -44,6 +34,26 @@ export const CAPABILITIES = [
 ] as const;
 
 export type Capability = (typeof CAPABILITIES)[number];
+
+/** What each capability lets someone do, as shown on the Roles page. */
+export const CAPABILITY_LABELS: Record<Capability, string> = {
+  "kiosk.run": "Run the LVH desk and the venue screen's QR",
+  "attendance.manual": "Mark members in or late by hand, and scan check-in passes",
+  "devices.approve": "Approve members' phones for check-in",
+  "leave.approve": "Approve medical leave",
+  "meeting.finalize": "Finalize meetings, and reopen them to correct a status",
+  "palms.view": "See Attendance & PALMS and the summaries",
+  "meetings.manage": "Create, edit, cancel and delete meetings; venues",
+  "awards.manage": "Choose and publish the weekly recognitions",
+  "calendar.manage": "Manage the calendar: events, trainings and presentation slots",
+  "feedback.manage": "Read and reply to suggestions and feedback",
+  "celebrations.view": "See members' birthdays and anniversaries",
+  "members.manage": "Add, edit, import and deactivate members",
+  "members.reset_password": "Reset a forgotten password to the default",
+  "roles.manage": "Assign roles, manage terms and app admins",
+  "settings.manage": "Change settings: attendance rules and the default password",
+  "audit.view": "See the audit log",
+};
 
 /** President (full access), VP and Secretary / Treasurer. */
 const HEAD_TABLE: Capability[] = [
@@ -68,7 +78,6 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     "members.manage",
     "audit.view",
   ],
-  lvh_captain: ["kiosk.run", "attendance.manual", "meeting.finalize", "palms.view"],
   lvh: ["kiosk.run", "attendance.manual"],
   attendance_coordinator: [
     "kiosk.run",
@@ -77,12 +86,12 @@ const ROLE_CAPS: Record<Role, readonly Capability[]> = {
     "meeting.finalize",
     "palms.view",
   ],
-  membership_committee: ["palms.view"],
-  education_coordinator: ["calendar.manage.education_slot"],
-  feature_presentation_coordinator: ["calendar.manage.feature_presentation"],
-  events_coordinator: ["calendar.manage.event"],
-  training_coordinator: ["calendar.manage.training"],
 };
+
+/** The capabilities one role gives, in the order of CAPABILITIES. */
+export function roleCapabilities(role: Role): Capability[] {
+  return CAPABILITIES.filter((c) => ROLE_CAPS[role].includes(c));
+}
 
 /** Admin, or the President of the current term: every capability and the same exemptions. */
 export function hasFullAccess(roles: readonly Role[], isAdmin: boolean): boolean {
@@ -92,6 +101,7 @@ export function hasFullAccess(roles: readonly Role[], isAdmin: boolean): boolean
 export function capabilitiesFor(roles: readonly Role[], isAdmin: boolean): Set<Capability> {
   if (hasFullAccess(roles, isAdmin)) return new Set(CAPABILITIES);
   const caps = new Set<Capability>();
+  // Roles removed from the app may still sit in old terms' data: they give nothing.
   for (const role of roles) for (const cap of ROLE_CAPS[role] ?? []) caps.add(cap);
   return caps;
 }
@@ -107,7 +117,7 @@ export function roleConflict(roles: readonly Role[]): string | null {
   if (hasFullAccess(roles, false)) return null;
   const caps = capabilitiesFor(roles, false);
   if (caps.has("devices.approve") && caps.has("attendance.manual")) {
-    return "One person can't both approve devices and do manual check-ins. Choose LVH roles or device-approver roles (Attendance Coordinator, Secretary / Treasurer), not both.";
+    return "One person can't both approve devices and do manual check-ins. Choose LVH Team or a device-approver role (Attendance Coordinator, Secretary / Treasurer), not both.";
   }
   return null;
 }
@@ -119,11 +129,7 @@ export function roleConflict(roles: readonly Role[]): string | null {
  * reset the President or the Secretary, for example).
  */
 export function capsCover(actor: ReadonlySet<Capability>, target: ReadonlySet<Capability>): boolean {
-  for (const cap of target) {
-    if (actor.has(cap)) continue;
-    if (cap.startsWith("calendar.manage.") && actor.has("calendar.manage")) continue;
-    return false;
-  }
+  for (const cap of target) if (!actor.has(cap)) return false;
   return true;
 }
 

@@ -29,7 +29,7 @@ const LINKS: { href: string; title: string; text: string; icon: React.ElementTyp
   { href: "/admin/members", title: "Members", text: "Roster, add members, import CSV", icon: UsersIcon, caps: ["members.manage"] },
   { href: "/admin/roles", title: "Roles & terms", text: "Who holds which role this term", icon: UserCogIcon, caps: ["roles.manage"] },
   { href: "/admin/awards", title: "Weekly recognitions", text: "Pick this week's winners", icon: TrophyIcon, caps: ["awards.manage"] },
-  { href: "/admin/calendar", title: "Calendar", text: "Events, trainings, presentation slots", icon: CalendarCogIcon, caps: ["calendar.manage", "calendar.manage.feature_presentation", "calendar.manage.education_slot", "calendar.manage.event", "calendar.manage.training"] },
+  { href: "/admin/calendar", title: "Calendar", text: "Events, trainings, presentation slots", icon: CalendarCogIcon, caps: ["calendar.manage"] },
   { href: "/admin/feedback", title: "Suggestions & feedback", text: "Read and reply to members' suggestions", icon: MessageSquareTextIcon, caps: ["feedback.manage"] },
   { href: "/admin/settings", title: "Settings", text: "Attendance rules and member sign-in", icon: SlidersHorizontalIcon, caps: ["settings.manage"] },
   { href: "/admin/audit", title: "Audit log", text: "Who changed what, and why", icon: HistoryIcon, caps: ["audit.view"] },

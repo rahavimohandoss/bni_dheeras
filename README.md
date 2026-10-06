@@ -97,7 +97,7 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
    - Everyone starts on the default password (Admin → Settings → Member sign-in). Share it with the chapter, or send each member their details from **Password → Send on WhatsApp**.
    - An account that only runs the app, such as "BNI Dheeras Admin", must have **Chapter member** unticked (Edit). It then never checks in and is left out of PALMS, absences, the directory, recognitions and celebrations.
 4. **Admin → Roles & terms:**
-   - President, VP, Secretary/Treasurer, LVH team, Attendance Coordinator, Membership Committee, coordinators.
+   - President, VP, Secretary/Treasurer, LVH Team, Attendance Coordinator. The eye icon next to a role shows what it can do.
    - The President of the current term gets the same full access as an Admin. When a new term starts, it moves to the new President.
    - The app refuses to give anyone else both device-approval and manual check-in roles.
 5. **Device-setup meeting:**

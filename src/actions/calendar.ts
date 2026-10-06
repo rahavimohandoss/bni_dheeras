@@ -7,8 +7,7 @@ import { db } from "@/db";
 import { CALENDAR_KINDS, calendarEvent } from "@/db/schema";
 import { type ActionResult, runAction, UserError } from "@/lib/action";
 import { audit } from "@/lib/audit";
-import { canManageKind } from "@/lib/calendar-perms";
-import { assertMember, AuthError } from "@/lib/session";
+import { assertCap } from "@/lib/session";
 import { istToDate } from "@/lib/time";
 
 const eventSchema = z.object({
@@ -31,9 +30,8 @@ const eventSchema = z.object({
 
 export async function saveCalendarEvent(id: string | null, input: z.input<typeof eventSchema>): Promise<ActionResult> {
   return runAction(async () => {
-    const me = await assertMember();
+    const me = await assertCap("calendar.manage");
     const d = eventSchema.parse(input);
-    if (!(canManageKind(me, d.kind))) throw new AuthError("You can't manage this type of calendar item.");
     const startsAt = istToDate(d.date, d.startTime);
     const endsAt = istToDate(d.date, d.endTime);
     if (endsAt <= startsAt) throw new UserError("End time must be after the start time.");
@@ -50,7 +48,6 @@ export async function saveCalendarEvent(id: string | null, input: z.input<typeof
     if (id) {
       const [before] = await db.select().from(calendarEvent).where(eq(calendarEvent.id, z.uuid().parse(id)));
       if (!before) throw new UserError("Calendar item not found.");
-      if (!(canManageKind(me, before.kind))) throw new AuthError();
       await db.update(calendarEvent).set(values).where(eq(calendarEvent.id, before.id));
       await audit({ actorId: me.id, action: "calendar.update", entity: "calendar_event", entityId: before.id, after: d });
     } else {
@@ -67,10 +64,9 @@ export async function saveCalendarEvent(id: string | null, input: z.input<typeof
 
 export async function deleteCalendarEvent(id: string): Promise<ActionResult> {
   return runAction(async () => {
-    const me = await assertMember();
+    const me = await assertCap("calendar.manage");
     const [row] = await db.select().from(calendarEvent).where(eq(calendarEvent.id, z.uuid().parse(id)));
     if (!row) throw new UserError("Calendar item not found.");
-    if (!(canManageKind(me, row.kind))) throw new AuthError();
     await db.delete(calendarEvent).where(eq(calendarEvent.id, row.id));
     await audit({ actorId: me.id, action: "calendar.delete", entity: "calendar_event", entityId: row.id, before: row });
     refresh();

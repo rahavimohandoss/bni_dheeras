@@ -1,6 +1,6 @@
 "use client";
 
-import { PencilIcon, XIcon } from "lucide-react";
+import { CheckIcon, EyeIcon, PencilIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
@@ -19,13 +19,14 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Term = { id: string; name: string; startsOn: string; endsOn: string };
 type MemberOpt = { id: string; fullName: string; isAdmin: boolean; isChapterMember: boolean };
+type RoleInfo = { key: string; label: string; can: string[]; notWith: string[] };
 
 export function RolesAdmin({
   meId,
@@ -34,13 +35,16 @@ export function RolesAdmin({
   members,
   assignments,
   roles,
+  everything,
 }: {
   meId: string;
   terms: Term[];
   selectedTermId: string | null;
   members: MemberOpt[];
   assignments: { id: string; role: string; memberId: string }[];
-  roles: { key: string; label: string }[];
+  roles: RoleInfo[];
+  /** Every permission, for full access (App admin and President). */
+  everything: string[];
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -137,16 +141,44 @@ export function RolesAdmin({
         ) : null}
 
         <div className="grid gap-3 sm:grid-cols-2">
+          {/* Not a term role, but it's who runs the app, so it's listed with the roles. */}
+          <Card>
+            <CardContent className="py-3">
+              <div className="mb-2 flex items-center gap-1 text-sm font-semibold">
+                <span className="flex-1">
+                  App admin<span className="ml-1.5 font-normal text-muted-foreground">· full access, every term</span>
+                </span>
+                <PermissionsButton title="App admin" note="Full access: everything in the app, in every term." can={everything} />
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {members
+                  .filter((m) => m.isAdmin)
+                  .map((m) => (
+                    <Badge key={m.id} variant="secondary">
+                      {m.fullName}
+                    </Badge>
+                  ))}
+              </div>
+              <p className="mt-2 text-xs text-muted-foreground">Change who is an admin under App admins.</p>
+            </CardContent>
+          </Card>
           {roles.map((r) => {
             const holders = assignments.filter((a) => a.role === r.key);
+            const president = r.key === "president";
             return (
               <Card key={r.key}>
                 <CardContent className="py-3">
-                  <div className="mb-2 text-sm font-semibold">
-                    {r.label}
-                    {r.key === "president" ? (
-                      <span className="ml-1.5 font-normal text-muted-foreground">· full access, same as Admin</span>
-                    ) : null}
+                  <div className="mb-2 flex items-center gap-1 text-sm font-semibold">
+                    <span className="flex-1">
+                      {r.label}
+                      {president ? <span className="ml-1.5 font-normal text-muted-foreground">· full access, same as Admin</span> : null}
+                    </span>
+                    <PermissionsButton
+                      title={r.label}
+                      note={president ? "Full access, the same as an app admin, for this term." : undefined}
+                      can={president ? everything : r.can}
+                      notWith={r.notWith}
+                    />
                   </div>
                   <div className="flex flex-wrap gap-1.5">
                     {holders.length === 0 ? <span className="text-sm text-muted-foreground">Nobody</span> : null}
@@ -194,6 +226,42 @@ export function RolesAdmin({
 
       {editingTerm && selectedTerm ? <EditTerm term={selectedTerm} onClose={() => setEditingTerm(false)} /> : null}
     </div>
+  );
+}
+
+/** The eye icon on a role: what the role lets its holders do. */
+function PermissionsButton({ title, note, can, notWith = [] }: { title: string; note?: string; can: string[]; notWith?: string[] }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <Button variant="ghost" size="icon-sm" aria-label={`What ${title} can do`} onClick={() => setOpen(true)}>
+        <EyeIcon />
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{title}: what they can do</DialogTitle>
+            <DialogDescription>
+              {note ?? "Besides what every member can do (check in, profile, dance card, feedback):"}
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-2 text-sm">
+            {can.map((c) => (
+              <li key={c} className="flex gap-2">
+                <CheckIcon className="mt-0.5 size-4 shrink-0 text-primary" />
+                {c}
+              </li>
+            ))}
+          </ul>
+          {notWith.length ? (
+            <p className="text-xs text-muted-foreground">
+              Can&apos;t be held together with {notWith.join(" or ")}: one person can&apos;t both approve phones and mark
+              attendance by hand.
+            </p>
+          ) : null}
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

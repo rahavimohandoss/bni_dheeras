@@ -1,6 +1,6 @@
 # BNI Dheeras Chapter App — Build Plan
 
-**Status:** v1.3 · decisions confirmed 5 Oct 2026, changes D8 and D9 on 6 Oct 2026 · first build done (see §13)
+**Status:** v1.4 · decisions confirmed 5 Oct 2026, changes D8–D10 on 6 Oct 2026 · first build done (see §13)
 **Scope:** every feature in the "BNI Dheeras Chapter App: Features" sheet, with two changes:
 
 1. **Attendance:** the LVH team no longer scans each member's QR. Instead a QR is shown on the venue screen and every member scans it. Nobody can mark attendance for someone else.
@@ -29,6 +29,10 @@
 >   - Members don't need to allow location to check in, so GPS problems can't cause a false Absent or Late.
 >   - The cost: the QR's 30-second life is the only thing tying a check-in to the room. Someone in the room can send a photo or video of the venue screen to an absent member, who can scan it in time (T3, T4 in §4.3). That check-in still shows the member's name on the venue screen and adds to the check-in count that the headcount must match before finalize.
 >   - The device rules are unchanged: one approved phone per member, one member per phone (T1, T2).
+> - **D10 Five roles (6 Oct 2026):** President, Vice President, Secretary / Treasurer, LVH Team and Attendance Coordinator.
+>   - Removed: LVH Captain (its holders moved to LVH Team), Membership Committee (GARAM), and the Education Slot, Feature Presentation, Events & BBB and Training coordinators.
+>   - The Head Table manages the whole calendar, absence-limit alerts go to the Head Table, and finalizing is for the Secretary, the Attendance Coordinator and the President.
+>   - Roles & terms shows each role's permissions behind an eye icon, and lists the app admins with the roles.
 
 ---
 
@@ -83,9 +87,9 @@ Roles are assigned per **term**, and one member can hold several.
 | Run kiosk QR + LVH live board | | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Manual check-in, confirm substitutes (reason required) | | ✓ | | | | ✓ |
 | Approve devices, approve medical leave | | | ✓ | ✓ | | ✓ |
-| Finalize meeting (and reopen it to correct a status), PALMS summary | | Captain | ✓ | ✓ | view | ✓ |
+| Finalize meeting (and reopen it to correct a status), PALMS summary | | | ✓ | ✓ | view | ✓ |
 | Weekly recognitions (Head Table) | | | | ✓ | ✓ | ✓ |
-| Calendar (each coordinator edits own slot type) | | | | ✓ | ✓ | ✓ |
+| Calendar (events, trainings, presentation slots) | | | | ✓ | ✓ | ✓ |
 | Send a suggestion or feedback | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Read and reply to suggestions; see birthdays and anniversaries | | | | ✓ | ✓ | ✓ |
 | Members, roles, settings, audit log | | | | members, audit log | | ✓ |
@@ -135,7 +139,7 @@ Admin is a technical super-user, and the President of the current term has exact
 
 **After the meeting**
 
-- **Finalize**, done by the LVH Captain or the Secretary:
+- **Finalize**, done by the Secretary or the Attendance Coordinator (or the President):
   1. Enter the physical member headcount.
   2. The app shows any mismatch with the check-ins, flagged ones first.
   3. Resolve the mismatch, then finalize.
@@ -144,7 +148,7 @@ Admin is a technical super-user, and the President of the current term has exact
   - approved medical leave becomes M;
   - confirmed substitutes become S.
 
-  The meeting is then locked. To fix a wrong status, **Reopen for corrections** on the PALMS summary (Secretary, Attendance Coordinator, LVH Captain, President or Admin, with a reason) unlocks it; LVH corrects it on the board and finalizes again. Both steps are audit-logged.
+  The meeting is then locked. To fix a wrong status, **Reopen for corrections** on the PALMS summary (Secretary, Attendance Coordinator, President or Admin, with a reason) unlocks it; LVH corrects it on the board and finalizes again. Both steps are audit-logged.
 - Outputs:
   - **PALMS summary for BNI Connect entry:** every member with P/A/L/M/S, substitute names and visitor count. Can be copied to the clipboard, downloaded as CSV or printed.
   - **Absentee follow-up list** for the Attendance Coordinator: call each absentee within 24 hours, then tick and add a note.
@@ -216,7 +220,7 @@ Every attempt, passed or failed, is stored with a reason code. That one table dr
 - **Absence counter:** counts A's over a rolling 6 months; M and S don't count. Members see "Absences (last 6 months): 1 of 3".
 - **Alerts:**
   - 2nd absence: the member and the Attendance Coordinator are alerted (the GARAM "warn at 2nd absence" rule);
-  - 3rd absence: flagged to the Membership Committee;
+  - 3rd absence: flagged to the Head Table (President, VP, Secretary), who take it to the Membership Committee;
   - repeated lateness (for example, 3 L's in 8 weeks): coaching flag.
 
 ### 4.6 Practical issues the design handles
@@ -270,7 +274,7 @@ Every attempt, passed or failed, is stored with a reason code. That one table dr
   - month and agenda views, plus a "My slots" filter;
   - add-to-calendar for each event, and a private calendar feed each member can subscribe to in Google or Apple Calendar.
 
-  Each coordinator edits only their own slot type.
+  The Head Table (President, VP, Secretary) manages the calendar.
 - **1-to-1 Dance Card:**
   - The form follows the chapter's printed card ([docs/dance-card-template.pdf](dance-card-template.pdf)) question for question:
     - Biography sheet;
@@ -402,7 +406,7 @@ Attendance comes first because it's the riskiest feature and needs real meetings
 - **Accounts:** Neon (database + Object Storage), Vercel; optional Resend (email copies).
 - **Domain:** the domain or sub-domain for the app.
 - **Roster:** BNI Connect Chapter Roster export or a CSV with name, email, phone, company and category.
-- **Current-term role holders:** President, VP, Secretary/Treasurer, LVH team, GARAM, coordinators.
+- **Current-term role holders:** President, VP, Secretary/Treasurer, LVH Team, Attendance Coordinator.
 - **Venue:**
   - the meeting hall's name and address;
   - meeting day and time;
@@ -423,7 +427,7 @@ Built and checked locally (type-check, lint, 29 unit tests, production build, br
   - audit log.
 - **Members:** profile, photo and logo upload, directory, member page.
 - **Location:** opt-in pin with *area only* mode; Near me list and map, nearest to farthest.
-- **Calendar:** month and agenda views, coordinator-managed slots, private phone-calendar feed.
+- **Calendar:** month and agenda views, Head Table-managed slots, private phone-calendar feed.
 - **Dance card:** form matching the chapter's printed card, and a PDF that is that card filled in.
 - **Weekly recognitions:** admin entry, publishing, history and leaderboard.
 - **Forms:** built, then removed on 6 Oct 2026 (D8).

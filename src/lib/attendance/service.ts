@@ -490,7 +490,8 @@ async function sendFinalizeAlerts(meetingId: string, startsAt: Date, absentIds: 
           .where(inArray(member.id, absentIds))
       ).map((r) => [r.id, r.fullName]),
     );
-    const committee = await membersWithRoles(["membership_committee", "secretary_treasurer"]);
+    // Reaching the limit goes to the Head Table, who take it to the Membership Committee.
+    const committee = await membersWithRoles(["president", "vice_president", "secretary_treasurer"]);
     for (const id of absentIds) {
       const n = counts.get(id) ?? 0;
       const who = names.get(id) ?? "A member";
