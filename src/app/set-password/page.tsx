@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
+import { BrandLogo } from "@/components/brand-logo";
 import { getCurrentMember } from "@/lib/session";
 import { SetPasswordForm } from "./set-password-form";
 
@@ -12,6 +13,7 @@ export default async function SetPasswordPage() {
   if (!me.mustChangePassword) redirect("/");
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center bg-sterling-light px-4 py-10">
+      <BrandLogo height={80} preload className="mb-6" />
       <SetPasswordForm name={me.fullName} />
     </main>
   );

@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { connection } from "next/server";
+import { BrandLogo } from "@/components/brand-logo";
 import { db } from "@/db";
 import { member } from "@/db/schema";
 import { RecoveryForm, SetupForm } from "./setup-form";
@@ -16,6 +17,7 @@ export default async function SetupPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh max-w-md flex-col justify-center px-4 py-10">
+      <BrandLogo height={80} preload className="mb-6" />
       {!done ? (
         <>
           <h1 className="text-2xl font-bold">First-time setup</h1>

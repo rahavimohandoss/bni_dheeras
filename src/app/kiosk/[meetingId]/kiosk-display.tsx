@@ -4,6 +4,7 @@ import { MaximizeIcon, WifiOffIcon } from "lucide-react";
 import QRCode from "qrcode";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { BrandLogo } from "@/components/brand-logo";
 import { MemberAvatar } from "@/components/member-avatar";
 import { formatTime } from "@/lib/time";
 
@@ -84,7 +85,8 @@ export function KioskDisplay({ meetingId }: { meetingId: string }) {
     <main className="flex min-h-dvh flex-col bg-white text-neutral-900 lg:flex-row">
       <section className="flex flex-1 flex-col items-center justify-center gap-6 p-6">
         <div className="text-center">
-          <div className="text-sm font-semibold tracking-widest text-primary uppercase">BNI Dheeras · Check in</div>
+          <BrandLogo height={72} preload className="mx-auto mb-3" />
+          <div className="text-sm font-semibold tracking-widest text-primary uppercase">Check in</div>
           <h1 className="text-3xl font-bold lg:text-4xl">{state?.meeting.title ?? "Loading…"}</h1>
           {state ? (
             <p className="text-neutral-500">

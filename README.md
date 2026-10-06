@@ -133,6 +133,7 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
 | `src/app/kiosk/` | Venue screen (rotating QR, welcome wall) |
 | `src/app/(app)/lvh/` | LVH desk and live board |
 | `src/db/schema.ts` | All tables; migrations are in `drizzle/` |
+| `docs/brand/` | The chapter logo. After replacing it, run `python scripts/make-icons.py` (needs Pillow) to rebuild the in-app logo, favicon and app icons. |
 
 ## Known limits
 

@@ -2,6 +2,7 @@ import { and, count, eq, isNull } from "drizzle-orm";
 import { BellIcon } from "lucide-react";
 import Link from "next/link";
 import { BottomNav, DesktopNav } from "@/components/app-nav";
+import { BrandLogo } from "@/components/brand-logo";
 import { UserMenu } from "@/components/user-menu";
 import { db } from "@/db";
 import { notification } from "@/db/schema";
@@ -19,11 +20,8 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
     <div className="flex min-h-dvh flex-col">
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4">
-          <Link href="/" className="flex items-center gap-2 font-bold">
-            <span className="flex size-8 items-center justify-center rounded-lg bg-primary text-xs font-extrabold text-primary-foreground">
-              BNI
-            </span>
-            <span className="text-base">Dheeras</span>
+          <Link href="/" className="shrink-0">
+            <BrandLogo height={44} preload />
           </Link>
           <div className="ml-2 flex-1">
             <DesktopNav caps={[...me.caps]} />

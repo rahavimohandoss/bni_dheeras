@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
+import { BrandLogo } from "@/components/brand-logo";
 import { db } from "@/db";
 import { form } from "@/db/schema";
 import { getCurrentMember } from "@/lib/session";
@@ -26,12 +27,7 @@ export default async function FormPage({ params }: PageProps<"/f/[slug]">) {
   return (
     <main className="min-h-dvh bg-sterling-light px-4 py-8">
       <div className="mx-auto max-w-xl">
-        <div className="mb-4 flex items-center gap-2">
-          <span className="flex size-9 items-center justify-center rounded-lg bg-primary text-xs font-extrabold text-primary-foreground">
-            BNI
-          </span>
-          <span className="font-bold">BNI Dheeras</span>
-        </div>
+        <BrandLogo height={56} preload className="mb-4" />
         <div className="rounded-2xl border bg-background p-5 shadow-sm">
           <h1 className="text-2xl font-bold">{f.title}</h1>
           {f.description ? <p className="mt-1 whitespace-pre-line text-muted-foreground">{f.description}</p> : null}
