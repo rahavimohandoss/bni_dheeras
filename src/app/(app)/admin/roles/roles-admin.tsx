@@ -182,9 +182,12 @@ export function RolesAdmin({
             <CardDescription>The President of the current term has the same access without this tick.</CardDescription>
           </CardHeader>
           <CardContent className="max-h-80 space-y-2 overflow-y-auto">
-            {members.map((m) => (
-              <AdminToggle key={m.id} member={m} disabled={m.id === meId} />
-            ))}
+            {/* Current admins first, so they're visible without scrolling. */}
+            {[...members]
+              .sort((a, b) => Number(b.isAdmin) - Number(a.isAdmin))
+              .map((m) => (
+                <AdminToggle key={m.id} member={m} disabled={m.id === meId} />
+              ))}
           </CardContent>
         </Card>
       </div>

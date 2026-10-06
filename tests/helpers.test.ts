@@ -3,7 +3,7 @@ import { approximatePoint, formatDistance, haversineM } from "@/lib/geo";
 import { isToday, nextMonth } from "@/lib/celebrations";
 import { toCsv } from "@/lib/csv";
 import { normalizePhone, parseLoginId, parseLooseDate, whatsappLink } from "@/lib/format";
-import { pageFromParam, pageHref, paginate } from "@/lib/pagination";
+import { pageFromParam, pageHref, pageItems, paginate } from "@/lib/pagination";
 import { CAPABILITIES, ROLE_KEYS, capabilitiesFor, capsCover, hasFullAccess, roleConflict } from "@/lib/permissions";
 import { istToDate, startOfIstDay, toIstDateInput, toIstTimeInput } from "@/lib/time";
 import { youtubeEmbedUrl } from "@/lib/video";
@@ -147,6 +147,29 @@ describe("pagination", () => {
   it("keeps filters in page links and drops page=1", () => {
     expect(pageHref("/admin/audit", { f: "role" }, 2)).toBe("/admin/audit?f=role&page=2");
     expect(pageHref("/admin/audit", { f: undefined }, 1)).toBe("/admin/audit");
+  });
+
+  it("pages two lists on one screen with their own keys", () => {
+    expect(pageHref("/admin/devices", { wp: "3", ap: undefined }, 2, "ap")).toBe("/admin/devices?wp=3&ap=2");
+    expect(pageHref("/admin/devices", { wp: "3", ap: "2" }, 1, "wp")).toBe("/admin/devices?ap=2");
+  });
+
+  it("shows every page number up to 7, then the ends and the neighbours", () => {
+    expect(pageItems(1, 1)).toEqual([1]);
+    expect(pageItems(4, 7)).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(pageItems(2, 12)).toEqual([1, 2, 3, 4, 5, "gap", 12]);
+    expect(pageItems(6, 12)).toEqual([1, "gap", 5, 6, 7, "gap", 12]);
+    expect(pageItems(11, 12)).toEqual([1, "gap", 8, 9, 10, 11, 12]);
+    // A gap never hides a single page: that number is shown instead.
+    for (let n = 8; n <= 30; n++) {
+      for (let p = 1; p <= n; p++) {
+        const items = pageItems(p, n);
+        expect(items).toContain(p);
+        items.forEach((it, i) => {
+          if (it === "gap") expect((items[i + 1] as number) - (items[i - 1] as number)).toBeGreaterThan(2);
+        });
+      }
+    }
   });
 });
 

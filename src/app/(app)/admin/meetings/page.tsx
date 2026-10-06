@@ -1,13 +1,16 @@
-import { and, asc, eq, gte } from "drizzle-orm";
+import { and, asc, count, desc, eq, gte } from "drizzle-orm";
+import { ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { deleteMeeting, restoreMeeting } from "@/actions/meetings";
 import { ConfirmButton } from "@/components/confirm-button";
 import { EmptyState, PageContainer, PageHeader } from "@/components/page-header";
+import { Pagination } from "@/components/pagination";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/db";
 import { meeting, venue } from "@/db/schema";
+import { pageFromParam, pageHref, paginate } from "@/lib/pagination";
 import { requireCapPage } from "@/lib/session";
 import { getAttendanceSettings } from "@/lib/settings";
 import { addDays, formatDateTime, formatTime, istWeekday, toIstDateInput } from "@/lib/time";
@@ -15,29 +18,42 @@ import { MeetingForm, type MeetingFormValues } from "./meeting-form";
 
 export const metadata: Metadata = { title: "Meetings" };
 
-export default async function MeetingsAdminPage() {
+const PAGE_SIZE = 10;
+
+export default async function MeetingsAdminPage({ searchParams }: PageProps<"/admin/meetings">) {
   await requireCapPage("meetings.manage");
-  const [upcoming, cancelled, venues, settings] = await Promise.all([
+  const now = new Date();
+  const isUpcoming = and(gte(meeting.endsAt, now), eq(meeting.status, "scheduled"));
+  const [{ total }] = await db.select({ total: count() }).from(meeting).where(isUpcoming);
+  const { page, pageCount, offset } = paginate(pageFromParam((await searchParams).page), total, PAGE_SIZE);
+  const [upcoming, cancelled, [last], venues, settings] = await Promise.all([
     db
       .select({ meeting, venueName: venue.name })
       .from(meeting)
       .leftJoin(venue, eq(venue.id, meeting.venueId))
-      .where(and(gte(meeting.endsAt, new Date()), eq(meeting.status, "scheduled")))
+      .where(isUpcoming)
       .orderBy(asc(meeting.startsAt))
-      .limit(30),
+      .limit(PAGE_SIZE)
+      .offset(offset),
     db
       .select({ meeting, venueName: venue.name })
       .from(meeting)
       .leftJoin(venue, eq(venue.id, meeting.venueId))
-      .where(and(gte(meeting.endsAt, new Date()), eq(meeting.status, "cancelled")))
+      .where(and(gte(meeting.endsAt, now), eq(meeting.status, "cancelled")))
       .orderBy(asc(meeting.startsAt))
       .limit(30),
+    // The latest weekly meeting on the schedule, to continue the series from.
+    db
+      .select({ startsAt: meeting.startsAt, endsAt: meeting.endsAt })
+      .from(meeting)
+      .where(and(isUpcoming, eq(meeting.kind, "weekly")))
+      .orderBy(desc(meeting.startsAt))
+      .limit(1),
     db.select({ id: venue.id, name: venue.name }).from(venue).where(eq(venue.isActive, true)),
     getAttendanceSettings(),
   ]);
 
-  // Default the series to the weekday/time of the next scheduled meeting, else next Thursday 7 AM.
-  const last = upcoming.at(-1)?.meeting;
+  // Default the series to the week after the last scheduled weekly meeting, else next Thursday 7 AM.
   const nextDate = last ? addDays(last.startsAt, 7) : nextWeekday(4);
   const defaults: MeetingFormValues = {
     title: "Weekly Meeting",
@@ -69,55 +85,63 @@ export default async function MeetingsAdminPage() {
           {upcoming.length === 0 ? (
             <EmptyState title="No upcoming meetings.">Create a weekly series to get started.</EmptyState>
           ) : (
-            <div className="space-y-2">
+            <div className="divide-y rounded-xl border bg-card">
               {upcoming.map(({ meeting: m, venueName }) => (
-                <Link key={m.id} href={`/admin/meetings/${m.id}`}>
-                  <Card className="mb-2 hover:border-primary/40">
-                    <CardContent className="py-3">
-                      <div className="font-medium">{m.title}</div>
-                      <div className="text-sm text-muted-foreground">
-                        {formatDateTime(m.startsAt)} – {formatTime(m.endsAt)} ·{" "}
-                        {m.mode === "online" ? "Online" : (venueName ?? "No venue")}
-                      </div>
-                    </CardContent>
-                  </Card>
+                <Link
+                  key={m.id}
+                  href={`/admin/meetings/${m.id}`}
+                  className="flex items-center gap-3 px-4 py-3 first:rounded-t-xl last:rounded-b-xl hover:bg-muted/50"
+                >
+                  <div className="min-w-0 flex-1">
+                    <div className="font-medium">{m.title}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {formatDateTime(m.startsAt)} – {formatTime(m.endsAt)} ·{" "}
+                      {m.mode === "online" ? "Online" : (venueName ?? "No venue")}
+                    </div>
+                  </div>
+                  <ChevronRightIcon className="size-4 shrink-0 text-muted-foreground" />
                 </Link>
               ))}
             </div>
           )}
+          <Pagination
+            page={page}
+            pageCount={pageCount}
+            total={total}
+            pageSize={PAGE_SIZE}
+            href={(p) => pageHref("/admin/meetings", {}, p)}
+          />
           {cancelled.length ? (
             <div className="mt-6">
               <h2 className="mb-2 text-sm font-semibold text-muted-foreground">Cancelled</h2>
-              <div className="space-y-2">
+              <div className="divide-y rounded-xl border bg-card">
                 {cancelled.map(({ meeting: m, venueName }) => (
-                  <Card key={m.id}>
-                    <CardContent className="flex flex-wrap items-center justify-between gap-2 py-3">
-                      <div>
-                        <div className="font-medium line-through decoration-muted-foreground/60">{m.title}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {formatDateTime(m.startsAt)} · {m.mode === "online" ? "Online" : (venueName ?? "No venue")}
-                          {m.notes ? ` · ${m.notes}` : ""}
-                        </div>
+                  <div key={m.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                    <div>
+                      <div className="font-medium line-through decoration-muted-foreground/60">{m.title}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {formatDateTime(m.startsAt)} · {m.mode === "online" ? "Online" : (venueName ?? "No venue")}
+                        {m.notes ? ` · ${m.notes}` : ""}
                       </div>
-                      <div className="flex gap-1">
-                        <ConfirmButton
-                          label="Restore"
-                          title="Restore this meeting?"
-                          description="It goes back on the schedule and check-in opens as usual."
-                          success="Meeting restored."
-                          action={restoreMeeting.bind(null, m.id)}
-                          destructive={false}
-                        />
-                        <ConfirmButton
-                          label="Delete"
-                          title="Delete this meeting?"
-                          description="It is removed completely. A meeting with check-ins or recognitions can't be deleted."
-                          success="Meeting deleted."
-                          action={deleteMeeting.bind(null, m.id)}
-                        />
-                      </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                    <div className="flex gap-1">
+                      <ConfirmButton
+                        label="Restore"
+                        title="Restore this meeting?"
+                        description="It goes back on the schedule and check-in opens as usual."
+                        success="Meeting restored."
+                        action={restoreMeeting.bind(null, m.id)}
+                        destructive={false}
+                      />
+                      <ConfirmButton
+                        label="Delete"
+                        title="Delete this meeting?"
+                        description="It is removed completely. A meeting with check-ins or recognitions can't be deleted."
+                        success="Meeting deleted."
+                        action={deleteMeeting.bind(null, m.id)}
+                      />
+                    </div>
+                  </div>
                 ))}
               </div>
             </div>
@@ -143,7 +167,11 @@ export default async function MeetingsAdminPage() {
 }
 
 function toTime(d: Date) {
-  return new Intl.DateTimeFormat("en-GB", { timeZone: "Asia/Kolkata", hour: "2-digit", minute: "2-digit" }).format(d);
+  return new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Kolkata",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(d);
 }
 
 function nextWeekday(target: number) {

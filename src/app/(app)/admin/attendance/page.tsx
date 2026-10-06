@@ -95,7 +95,7 @@ export default async function AttendanceAdminPage({ searchParams }: PageProps<"/
           </Table>
         </div>
       )}
-      <Pagination page={page} pageCount={pageCount} href={(p) => pageHref("/admin/attendance", {}, p)} />
+      <Pagination page={page} pageCount={pageCount} total={total} pageSize={PAGE_SIZE} href={(p) => pageHref("/admin/attendance", {}, p)} />
     </PageContainer>
   );
 }

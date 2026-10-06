@@ -64,7 +64,7 @@ export default async function NotificationsPage({ searchParams }: PageProps<"/no
           ))}
         </div>
       )}
-      <Pagination page={page} pageCount={pageCount} href={(p) => pageHref("/notifications", {}, p)} />
+      <Pagination page={page} pageCount={pageCount} total={total} pageSize={PAGE_SIZE} href={(p) => pageHref("/notifications", {}, p)} />
     </PageContainer>
   );
 }

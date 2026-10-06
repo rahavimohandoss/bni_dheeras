@@ -105,7 +105,7 @@ export default async function FeedbackAdminPage({ searchParams }: PageProps<"/ad
           ))}
         </div>
       )}
-      <Pagination page={page} pageCount={pageCount} href={(p) => pageHref("/admin/feedback", { status, kind }, p)} />
+      <Pagination page={page} pageCount={pageCount} total={total} pageSize={PAGE_SIZE} href={(p) => pageHref("/admin/feedback", { status, kind }, p)} />
     </PageContainer>
   );
 }

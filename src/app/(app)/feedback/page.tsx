@@ -58,7 +58,7 @@ export default async function FeedbackPage({ searchParams }: PageProps<"/feedbac
           ))}
         </div>
       )}
-      <Pagination page={page} pageCount={pageCount} href={(p) => pageHref("/feedback", {}, p)} />
+      <Pagination page={page} pageCount={pageCount} total={total} pageSize={PAGE_SIZE} href={(p) => pageHref("/feedback", {}, p)} />
     </PageContainer>
   );
 }

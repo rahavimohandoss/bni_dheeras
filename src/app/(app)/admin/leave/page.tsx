@@ -102,7 +102,7 @@ export default async function LeavePage({ searchParams }: PageProps<"/admin/leav
               </div>
             ))}
           </div>
-          <Pagination page={page} pageCount={pageCount} href={(p) => pageHref("/admin/leave", {}, p)} />
+          <Pagination page={page} pageCount={pageCount} total={total} pageSize={PAGE_SIZE} href={(p) => pageHref("/admin/leave", {}, p)} />
         </>
       ) : null}
     </PageContainer>

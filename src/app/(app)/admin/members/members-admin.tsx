@@ -5,6 +5,7 @@ import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { addMember, type ImportReport, importMembersCsv, setMemberStatus, updateMember } from "@/actions/members";
 import { ConfirmButton } from "@/components/confirm-button";
+import { PaginationButtons } from "@/components/pagination";
 import { PasswordButton } from "@/components/password-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -178,19 +179,14 @@ export function MembersAdmin({ members, meId }: { members: Row[]; meId: string }
           </TableBody>
         </Table>
       </div>
-      {pageCount > 1 ? (
-        <div className="flex items-center justify-between text-sm">
-          <Button variant="outline" size="sm" disabled={current <= 1} onClick={() => setPage(current - 1)}>
-            Previous
-          </Button>
-          <span className="text-muted-foreground tabular-nums">
-            Page {current} of {pageCount}
-          </span>
-          <Button variant="outline" size="sm" disabled={current >= pageCount} onClick={() => setPage(current + 1)}>
-            Next
-          </Button>
-        </div>
-      ) : null}
+      <PaginationButtons
+        className="mt-0"
+        page={current}
+        pageCount={pageCount}
+        total={filtered.length}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+      />
       {editing ? <MemberDialog row={editing === "new" ? null : editing} onClose={() => setEditing(null)} /> : null}
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>

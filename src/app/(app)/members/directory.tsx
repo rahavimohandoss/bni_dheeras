@@ -4,17 +4,23 @@ import { SearchIcon } from "lucide-react";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { MemberAvatar } from "@/components/member-avatar";
+import { PaginationButtons } from "@/components/pagination";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { paginate } from "@/lib/pagination";
 
 type Row = { id: string; name: string; business: string | null; category: string | null; photoUrl: string | null };
 
+const PAGE_SIZE = 24;
+
 export function Directory({ members }: { members: Row[] }) {
   const [query, setQuery] = useState("");
+  const [page, setPage] = useState(1);
   const list = useMemo(() => {
     const q = query.trim().toLowerCase();
     return q ? members.filter((m) => [m.name, m.business, m.category].some((v) => v?.toLowerCase().includes(q))) : members;
   }, [members, query]);
+  const pages = paginate(page, list.length, PAGE_SIZE);
   return (
     <div className="space-y-4">
       <div className="relative max-w-md">
@@ -23,11 +29,14 @@ export function Directory({ members }: { members: Row[] }) {
           className="pl-8"
           placeholder="Search by name, business or category (e.g. plumber)"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => {
+            setQuery(e.target.value);
+            setPage(1);
+          }}
         />
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {list.map((m) => (
+        {list.slice(pages.offset, pages.offset + PAGE_SIZE).map((m) => (
           <Link key={m.id} href={`/members/${m.id}`}>
             <Card className="h-full hover:border-primary/40">
               <CardContent className="flex items-center gap-3 py-3">
@@ -43,6 +52,13 @@ export function Directory({ members }: { members: Row[] }) {
         ))}
       </div>
       {list.length === 0 ? <p className="text-sm text-muted-foreground">No members match &quot;{query}&quot;.</p> : null}
+      <PaginationButtons
+        page={pages.page}
+        pageCount={pages.pageCount}
+        total={list.length}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

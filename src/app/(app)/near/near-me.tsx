@@ -7,12 +7,14 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { toast } from "sonner";
 import { nearbyFromHere } from "@/actions/location";
 import { MemberAvatar } from "@/components/member-avatar";
+import { PaginationButtons } from "@/components/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { formatDistance } from "@/lib/geo";
 import { getBestPosition } from "@/lib/geolocation";
 import type { NearbyMember } from "@/lib/nearby";
+import { paginate } from "@/lib/pagination";
 import { cn } from "@/lib/utils";
 
 const NearMap = dynamic(() => import("./near-map"), {
@@ -180,7 +182,8 @@ export function NearMe({ business, initial }: { business: Origin | null; initial
       ) : view === "map" ? (
         <NearMap origin={origin} members={list} />
       ) : (
-        <NearList members={list} />
+        // A new search, distance limit or starting point goes back to page 1.
+        <NearList key={`${from}|${query}|${limit}`} members={list} />
       )}
     </div>
   );
@@ -212,21 +215,27 @@ function Toggle({
   );
 }
 
+const PAGE_SIZE = 20;
+
+/** Nearest first, a page at a time; each band heading still counts the whole band. */
 function NearList({ members }: { members: NearbyMember[] }) {
+  const [page, setPage] = useState(1);
   if (members.length === 0) {
     return <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">No members match.</div>;
   }
-  const groups = BANDS.map((band, i) => ({
-    label: band.label,
-    items: members.filter((m) => m.distanceM <= band.max && (i === 0 || m.distanceM > BANDS[i - 1].max)),
-  })).filter((g) => g.items.length);
+  const pages = paginate(page, members.length, PAGE_SIZE);
+  const shown = members.slice(pages.offset, pages.offset + PAGE_SIZE);
+  const groups = BANDS.map((band, i) => {
+    const inBand = (m: NearbyMember) => m.distanceM <= band.max && (i === 0 || m.distanceM > BANDS[i - 1].max);
+    return { label: band.label, total: members.filter(inBand).length, items: shown.filter(inBand) };
+  }).filter((g) => g.items.length);
 
   return (
     <div className="space-y-5">
       {groups.map((g) => (
         <section key={g.label}>
           <h2 className="mb-2 text-sm font-semibold text-muted-foreground">
-            {g.label} · {g.items.length}
+            {g.label} · {g.total}
           </h2>
           <div className="divide-y rounded-xl border bg-card">
             {g.items.map((m) => (
@@ -235,6 +244,13 @@ function NearList({ members }: { members: NearbyMember[] }) {
           </div>
         </section>
       ))}
+      <PaginationButtons
+        page={pages.page}
+        pageCount={pages.pageCount}
+        total={members.length}
+        pageSize={PAGE_SIZE}
+        onPageChange={setPage}
+      />
     </div>
   );
 }

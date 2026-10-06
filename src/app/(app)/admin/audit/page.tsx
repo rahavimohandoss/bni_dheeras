@@ -108,7 +108,7 @@ export default async function AuditPage({ searchParams }: PageProps<"/admin/audi
           </TableBody>
         </Table>
       </div>
-      <Pagination page={page} pageCount={pageCount} href={(p) => pageHref("/admin/audit", { f: filter.key || undefined }, p)} />
+      <Pagination page={page} pageCount={pageCount} total={total} pageSize={PAGE_SIZE} href={(p) => pageHref("/admin/audit", { f: filter.key || undefined }, p)} />
     </PageContainer>
   );
 }

@@ -233,9 +233,14 @@ async function latestWinners() {
   return { date: latest.date, rows };
 }
 
+const CARD_LIMIT = 6;
+
 function CelebrationsCard({ all, now }: { all: Celebration[]; now: ReturnType<typeof today> }) {
   const coming = nextMonth(now.month);
   const thisMonth = all.filter((c) => c.month === now.month);
+  // Today's and the rest of the month's first; days already gone are on the Celebrations page.
+  const stillToCome = thisMonth.filter((c) => c.day >= now.day || isToday(c, now));
+  const shownThisMonth = stillToCome.slice(0, CARD_LIMIT);
   const nextOnes = all.filter((c) => c.month === coming);
   return (
     <Card>
@@ -250,22 +255,29 @@ function CelebrationsCard({ all, now }: { all: Celebration[]; now: ReturnType<ty
       <CardContent className="space-y-3">
         <div>
           <div className="mb-1 text-xs font-medium text-muted-foreground uppercase">This month · {MONTH_NAMES[now.month - 1]}</div>
-          {thisMonth.length ? (
-            thisMonth.map((c) => <CelebrationRow key={`${c.memberId}-${c.kind}`} c={c} today={isToday(c, now)} />)
+          {shownThisMonth.length ? (
+            shownThisMonth.map((c) => <CelebrationRow key={`${c.memberId}-${c.kind}`} c={c} today={isToday(c, now)} />)
           ) : (
-            <p className="text-sm text-muted-foreground">No birthdays or anniversaries this month.</p>
+            <p className="text-sm text-muted-foreground">
+              {thisMonth.length ? "No more this month." : "No birthdays or anniversaries this month."}
+            </p>
           )}
+          {thisMonth.length > shownThisMonth.length ? (
+            <Link href="/celebrations" className="mt-1 block text-sm text-primary underline">
+              +{thisMonth.length - shownThisMonth.length} more this month
+            </Link>
+          ) : null}
         </div>
         <div>
           <div className="mb-1 text-xs font-medium text-muted-foreground uppercase">Coming up · {MONTH_NAMES[coming - 1]}</div>
           {nextOnes.length ? (
-            nextOnes.slice(0, 5).map((c) => <CelebrationRow key={`${c.memberId}-${c.kind}`} c={c} today={false} />)
+            nextOnes.slice(0, CARD_LIMIT).map((c) => <CelebrationRow key={`${c.memberId}-${c.kind}`} c={c} today={false} />)
           ) : (
             <p className="text-sm text-muted-foreground">Nothing yet.</p>
           )}
-          {nextOnes.length > 5 ? (
+          {nextOnes.length > CARD_LIMIT ? (
             <Link href="/celebrations" className="mt-1 block text-sm text-primary underline">
-              +{nextOnes.length - 5} more
+              +{nextOnes.length - CARD_LIMIT} more
             </Link>
           ) : null}
         </div>

@@ -2,16 +2,20 @@ import { and, count, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { CelebrationRow } from "@/components/celebration-row";
 import { PageContainer, PageHeader } from "@/components/page-header";
+import { Pagination } from "@/components/pagination";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/db";
 import { member } from "@/db/schema";
 import { getCelebrations, isToday, MONTH_NAMES, today } from "@/lib/celebrations";
+import { pageFromParam, pageHref, paginate } from "@/lib/pagination";
 import { requireCapPage } from "@/lib/session";
 
 export const metadata: Metadata = { title: "Celebrations" };
 
-/** Head Table: every member's birthday and wedding anniversary, month by month from this month. */
-export default async function CelebrationsPage() {
+const MONTHS_PER_PAGE = 3;
+
+/** Head Table: every member's birthday and wedding anniversary, three months a page from this month. */
+export default async function CelebrationsPage({ searchParams }: PageProps<"/celebrations">) {
   await requireCapPage("celebrations.view");
   const now = today();
   const [all, [{ members }]] = await Promise.all([
@@ -22,7 +26,9 @@ export default async function CelebrationsPage() {
       .where(and(eq(member.status, "active"), eq(member.isChapterMember, true))),
   ]);
   const withBirthday = new Set(all.filter((c) => c.kind === "birthday").map((c) => c.memberId)).size;
-  const months = Array.from({ length: 12 }, (_, i) => ((now.month - 1 + i) % 12) + 1);
+  const year = Array.from({ length: 12 }, (_, i) => ((now.month - 1 + i) % 12) + 1);
+  const { page, pageCount, offset } = paginate(pageFromParam((await searchParams).page), year.length, MONTHS_PER_PAGE);
+  const months = year.slice(offset, offset + MONTHS_PER_PAGE);
 
   return (
     <PageContainer>
@@ -57,6 +63,12 @@ export default async function CelebrationsPage() {
           );
         })}
       </div>
+      <Pagination
+        page={page}
+        pageCount={pageCount}
+        summary={`${MONTH_NAMES[months[0] - 1]} – ${MONTH_NAMES[months[months.length - 1] - 1]}`}
+        href={(p) => pageHref("/celebrations", {}, p)}
+      />
     </PageContainer>
   );
 }

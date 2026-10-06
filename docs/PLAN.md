@@ -436,6 +436,8 @@ Added on 6 Oct 2026 (D8), checked the same way (type-check, lint, 36 unit tests,
 - Per-award recognition fields; unpublish.
 - Admin clean-up: pagination on long lists; delete and restore for cancelled meetings; reopen a finalized meeting; edit and delete terms; reject a pending phone; delete venues and calendar events with a confirmation; leave decision history; audit log filters; notification delete and "clear read".
 
+Numbered pagination (6 Oct 2026) on every list that keeps growing: recognitions (6 weeks a page, with the term leaderboard counted in the database), admin meetings, calendar items, devices, members, Near me, celebrations (3 months a page), attendance, leave, audit, feedback and notifications.
+
 Removed on 6 Oct 2026 (D9): the geofence and everything tied to it. A check-in with no location was tested end to end (venue QR → "Checked in — Late").
 
 Verified by testing in the browser:
