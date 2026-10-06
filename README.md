@@ -137,5 +137,5 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
 ## Known limits
 
 - **Proxies inside the venue can't be fully blocked.** A web app can't detect fake-GPS apps or a member handing their phone to someone in the room. These cases are made visible instead: names on the venue screen, flags, and the headcount check (see PLAN §1 and §4.3). With the selfie check turned off, this visibility is the only control for a phone handed over inside the venue.
-- **Tamil text in the dance-card PDF** needs a Tamil font added to the PDF renderer. English works today.
+- **Tamil text in the dance-card PDF:** the PDF prints in the card's own font (Helvetica). Tamil letters and emoji come out as "?", and the form warns about this; ₹ prints as "Rs.". To change the card, replace `docs/dance-card-template.pdf`, run `node scripts/embed-dance-card-template.mjs` and update the line positions in `src/lib/dance-card.ts`.
 - **OpenStreetMap's public tile server** is fine for a chapter. For heavier use, set `NEXT_PUBLIC_MAP_TILE_URL` to another tile provider.

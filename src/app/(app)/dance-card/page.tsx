@@ -22,8 +22,8 @@ export default async function MyDanceCardPage() {
         title="My 1-to-1 dance card"
         description={
           card.updatedAt
-            ? `Last saved ${formatDateTime(card.updatedAt)}. Other members can view it before a 1-to-1.`
-            : "Fill it in once; other members can view it before a 1-to-1."
+            ? `Last saved ${formatDateTime(card.updatedAt)}. Other members can view it before a 1-to-1. The PDF is the chapter's printed card with your answers filled in.`
+            : "Fill it in once; other members can view it before a 1-to-1. The PDF is the chapter's printed card with your answers filled in."
         }
         actions={
           <Button asChild variant="outline">
@@ -48,7 +48,7 @@ export default async function MyDanceCardPage() {
           </div>
         </CardContent>
       </Card>
-      <DanceCardForm template={card.template} initial={card.data} />
+      <DanceCardForm initial={card.answers} />
     </PageContainer>
   );
 }

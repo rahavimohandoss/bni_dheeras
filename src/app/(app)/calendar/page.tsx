@@ -1,17 +1,13 @@
-import { eq } from "drizzle-orm";
 import { ChevronLeftIcon, ChevronRightIcon, ClockIcon, MapPinIcon, UserIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageContainer, PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { db } from "@/db";
-import { member } from "@/db/schema";
 import { type CalendarItem, calendarItems, KIND_LABELS } from "@/lib/calendar";
 import { requireMember } from "@/lib/session";
 import { formatDate, formatMonth, formatTime, istToDate, toIstDateInput } from "@/lib/time";
 import { cn } from "@/lib/utils";
-import { SubscribeButton } from "./subscribe-button";
 
 export const metadata: Metadata = { title: "Calendar" };
 
@@ -39,10 +35,6 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
   const onlyMine = mine === "1";
   let items = await calendarItems(monthStart, monthEnd);
   if (onlyMine) items = items.filter((i) => i.presenter?.id === me.id);
-  const [{ token }] = await db
-    .select({ token: member.calendarToken })
-    .from(member)
-    .where(eq(member.id, me.id));
 
   // Month grid (Monday first), in IST.
   const daysInMonth = new Date(Date.UTC(y, mo, 0)).getUTCDate();
@@ -66,14 +58,11 @@ export default async function CalendarPage({ searchParams }: PageProps<"/calenda
         title="Calendar"
         description="Meetings, events, trainings and presentation slots."
         actions={
-          <>
-            <Button asChild variant={onlyMine ? "default" : "outline"} size="sm">
-              <Link href={onlyMine ? `/calendar?m=${y}-${String(mo).padStart(2, "0")}` : `${qs(`${y}-${String(mo).padStart(2, "0")}`)}&mine=1`}>
-                My slots
-              </Link>
-            </Button>
-            <SubscribeButton path={`/api/calendar/${token}.ics`} />
-          </>
+          <Button asChild variant={onlyMine ? "default" : "outline"} size="sm">
+            <Link href={onlyMine ? `/calendar?m=${y}-${String(mo).padStart(2, "0")}` : `${qs(`${y}-${String(mo).padStart(2, "0")}`)}&mine=1`}>
+              My slots
+            </Link>
+          </Button>
         }
       />
 

@@ -3,7 +3,6 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/db";
 import { setting } from "@/db/schema";
-import { DEFAULT_DANCE_CARD_TEMPLATE, type DanceCardTemplate, danceCardTemplateSchema } from "@/lib/dance-card";
 
 export const attendanceSettingsSchema = z.object({
   /** Minutes after start that still count as on time. null = exact start time. */
@@ -52,8 +51,4 @@ export async function writeSetting(key: string, value: unknown, actorId: string 
 
 export function getAttendanceSettings(): Promise<AttendanceSettings> {
   return readSetting("attendance", attendanceSettingsSchema, DEFAULT_ATTENDANCE_SETTINGS);
-}
-
-export function getDanceCardTemplate(): Promise<DanceCardTemplate> {
-  return readSetting("danceCardTemplate", danceCardTemplateSchema, DEFAULT_DANCE_CARD_TEMPLATE);
 }

@@ -53,7 +53,7 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       {denied ? (
         <p className="mb-4 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">You don&apos;t have access to that page.</p>
       ) : null}
-      <h1 className="mb-4 text-2xl font-bold">Vanakkam, {firstName}</h1>
+      <h1 className="mb-4 text-2xl font-bold">Hello, {firstName}</h1>
 
       <div className="space-y-4">
         {pendingDevices > 0 || pendingLeave > 0 ? (

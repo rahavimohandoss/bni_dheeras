@@ -56,7 +56,7 @@
 | App shell | Installable PWA (manifest, icons, "Add to Home Screen") | No app store needed |
 | Maps | Leaflet + OpenStreetMap tiles; address search through Nominatim (free) | Decision D2 |
 | QR | `qrcode` to draw the QR; a JS/WASM decoder (zxing-wasm) for the in-app scanner | Works on iPhone and Android |
-| PDF | `@react-pdf/renderer` in a route handler | For the dance card |
+| PDF | `pdf-lib` in a route handler | Writes dance-card answers onto the chapter's own printed card |
 | Email | Resend (optional) | Email copies of alerts and the Monday report only |
 | Spam protection | Cloudflare Turnstile | On public forms |
 | Hosting | Vercel (Hobby), with functions pinned to `sin1` next to the database | Decision D3 |
@@ -262,9 +262,15 @@ Every attempt, passed or failed, is stored with a reason code, distance and accu
 
   Each coordinator edits only their own slot type.
 - **1-to-1 Dance Card:**
-  - The admin sets the template once. The default is the chapter's current dance card: GAINS (Goals, Accomplishments, Interests, Networks, Skills) plus ideal referral, top product and referral partners.
-  - Every member gets one pre-filled from their profile.
-  - It autosaves, can be edited at any time, and has **Download PDF** in the BNI brand layout.
+  - The form follows the chapter's printed card ([docs/dance-card-template.pdf](dance-card-template.pdf)) question for question:
+    - Biography sheet;
+    - GAINS worksheet (4 prompts each for Goals, Accomplishments, Interests, Networks, Skills);
+    - Contact sphere (7);
+    - Last 10 customers;
+    - Ideal referral;
+    - Top problem I solve.
+  - Name, company, profession and location start from the member's profile.
+  - **Download PDF** is that printed card with the answers written on its lines. Long answers shrink to fit, and the form limits each answer to what fits.
   - Other members can view it from the member's profile to prepare for a 1-to-1.
 - **Weekly recognitions:**
   - Five awards: Highest Referral Giver, Top Business Giver, Best Attire, Best 30-Second Presentation, Star of the Week.
@@ -409,7 +415,7 @@ Built and checked locally (type-check, lint, 29 unit tests, production build, br
 - **Members:** profile, photo and logo upload, directory, member page.
 - **Location:** opt-in pin with *area only* mode; Near me list and map, nearest to farthest.
 - **Calendar:** month and agenda views, coordinator-managed slots, private phone-calendar feed.
-- **Dance card:** editor, template editor, BNI-branded PDF.
+- **Dance card:** form matching the chapter's printed card, and a PDF that is that card filled in.
 - **Weekly recognitions:** admin entry, publishing, history and leaderboard.
 - **Forms:** templates and builder, public and members-only links, Turnstile, responses with CSV. Visitor Registration feeds the PALMS visitor count.
 - **Admin:** members (add, edit, CSV import), roles per term with the separation-of-duties check, settings.

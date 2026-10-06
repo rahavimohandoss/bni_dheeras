@@ -1,7 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { PageContainer, PageHeader } from "@/components/page-header";
-import { Card, CardContent } from "@/components/ui/card";
 import { getDefaultPassword } from "@/lib/passwords";
 import { requireCapPage } from "@/lib/session";
 import { getAttendanceSettings } from "@/lib/settings";
@@ -20,14 +18,6 @@ export default async function SettingsPage() {
       <AttendanceSettingsForm initial={settings} />
       <h2 className="mt-6 mb-2 font-semibold">Member sign-in</h2>
       <DefaultPasswordForm initial={defaultPassword} />
-      <Card className="mt-6">
-        <CardContent className="flex items-center justify-between py-4 text-sm">
-          <span>1-to-1 dance card template</span>
-          <Link className="text-primary underline" href="/admin/settings/dance-card">
-            Edit template
-          </Link>
-        </CardContent>
-      </Card>
     </PageContainer>
   );
 }

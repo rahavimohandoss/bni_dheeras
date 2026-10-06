@@ -4,7 +4,8 @@ import { notFound, redirect } from "next/navigation";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PageContainer, PageHeader } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DANCE_CARD } from "@/lib/dance-card";
 import { loadDanceCard } from "@/lib/dance-card-data";
 import { requireMember } from "@/lib/session";
 
@@ -16,9 +17,12 @@ export default async function MemberDanceCardPage({ params }: PageProps<"/dance-
   if (id === me.id) redirect("/dance-card");
   const card = await loadDanceCard(id);
   if (!card) notFound();
-  const filled = card.template.sections
-    .map((s) => ({ ...s, fields: s.fields.filter((f) => card.data[f.key]) }))
-    .filter((s) => s.fields.length);
+  const sections = DANCE_CARD.map((s) => ({
+    ...s,
+    groups: s.groups
+      .map((g) => ({ ...g, fields: g.fields.filter((f) => card.answers[f.key]) }))
+      .filter((g) => g.fields.length),
+  })).filter((s) => s.groups.length);
 
   return (
     <PageContainer>
@@ -42,27 +46,39 @@ export default async function MemberDanceCardPage({ params }: PageProps<"/dance-
           </div>
         </CardContent>
       </Card>
-      {filled.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{card.member.name} hasn&apos;t filled in their dance card yet.</p>
-      ) : (
-        <div className="space-y-4">
-          {filled.map((s) => (
-            <Card key={s.title}>
-              <CardHeader>
-                <CardTitle className="text-base">{s.title}</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                {s.fields.map((f) => (
-                  <div key={f.key}>
-                    <div className="text-xs font-medium text-muted-foreground">{f.label}</div>
-                    <div className="text-sm whitespace-pre-line">{card.data[f.key]}</div>
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      {card.updatedAt ? null : (
+        <p className="mb-4 text-sm text-muted-foreground">{card.member.name} hasn&apos;t filled in their dance card yet.</p>
       )}
+      <div className="space-y-4">
+        {sections.map((section) => (
+          <Card key={section.title}>
+            <CardHeader>
+              <CardTitle className="text-base font-bold tracking-wide text-primary uppercase">{section.title}</CardTitle>
+              {section.note ? <CardDescription className="italic">({section.note})</CardDescription> : null}
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {section.groups.map((group, i) => (
+                <div key={group.title ?? i} className="space-y-2">
+                  {group.title ? <h3 className="text-sm font-bold">{group.title}:</h3> : null}
+                  {group.fields.map((f) =>
+                    f.kind === "numbered" ? (
+                      <div key={f.key} className="flex gap-2 text-sm">
+                        <span className="w-6 shrink-0 text-right text-muted-foreground">{f.label}</span>
+                        <span>{card.answers[f.key]}</span>
+                      </div>
+                    ) : (
+                      <div key={f.key}>
+                        <div className="text-xs font-medium text-muted-foreground">{f.label}</div>
+                        <div className="text-sm">{card.answers[f.key]}</div>
+                      </div>
+                    ),
+                  )}
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
     </PageContainer>
   );
 }
