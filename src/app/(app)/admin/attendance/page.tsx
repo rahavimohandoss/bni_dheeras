@@ -2,12 +2,14 @@ import { count, desc, eq, lte, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { DeleteMeetingButton } from "@/components/delete-meeting-button";
 import { EmptyState, PageContainer, PageHeader } from "@/components/page-header";
 import { Pagination } from "@/components/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db } from "@/db";
 import { attendance, meeting, member } from "@/db/schema";
+import { recordCounts } from "@/lib/attendance/queries";
 import { pageFromParam, pageHref, paginate } from "@/lib/pagination";
 import { requireMember } from "@/lib/session";
 import { formatDate } from "@/lib/time";
@@ -35,6 +37,10 @@ export default async function AttendanceAdminPage({ searchParams }: PageProps<"/
     .orderBy(desc(meeting.startsAt))
     .limit(PAGE_SIZE)
     .offset(offset);
+  const counts = await recordCounts(rows.map((r) => r.meeting.id));
+  // Meetings with attendance are PALMS history: only the President or an admin can delete those.
+  const canDelete = (status: string, records: number) =>
+    me.fullAccess || (me.caps.has("meetings.manage") && records === 0 && status !== "finalized");
 
   return (
     <PageContainer wide>
@@ -77,7 +83,7 @@ export default async function AttendanceAdminPage({ searchParams }: PageProps<"/
                   <TableCell className="text-right tabular-nums">{r.l}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.m}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.s}</TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right whitespace-nowrap">
                     {r.meeting.status === "cancelled" ? null : (
                       <Link className="text-sm text-primary underline" href={`/meetings/${r.meeting.id}/summary`}>
                         Summary
@@ -87,6 +93,17 @@ export default async function AttendanceAdminPage({ searchParams }: PageProps<"/
                       <Link className="ml-3 text-sm text-primary underline" href={`/lvh/${r.meeting.id}`}>
                         Board
                       </Link>
+                    ) : null}
+                    {canDelete(r.meeting.status, counts.get(r.meeting.id)!.records) ? (
+                      <span className="ml-1">
+                        <DeleteMeetingButton
+                          meetingId={r.meeting.id}
+                          when={formatDate(r.meeting.startsAt)}
+                          {...counts.get(r.meeting.id)!}
+                          finalized={r.meeting.status === "finalized"}
+                          size="sm"
+                        />
+                      </span>
                     ) : null}
                   </TableCell>
                 </TableRow>

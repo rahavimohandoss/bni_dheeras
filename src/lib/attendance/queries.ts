@@ -1,8 +1,9 @@
 import "server-only";
-import { and, asc, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
+import { and, asc, count, eq, gte, inArray, isNull, lte, or, sql } from "drizzle-orm";
 import { type DBOrTx, db } from "@/db";
 import {
   attendance,
+  award,
   leaveRequest,
   meeting,
   member,
@@ -10,6 +11,25 @@ import {
   venue,
 } from "@/db/schema";
 import { subtractMonths, toIstDateInput } from "@/lib/time";
+
+export type RecordCounts = { records: number; recognitions: number };
+
+/** How much would go with each meeting if it were deleted: attendance rows and recognitions. */
+export async function recordCounts(meetingIds: string[]): Promise<Map<string, RecordCounts>> {
+  const counts = new Map<string, RecordCounts>(meetingIds.map((id) => [id, { records: 0, recognitions: 0 }]));
+  if (meetingIds.length === 0) return counts;
+  const [records, recognitions] = await Promise.all([
+    db
+      .select({ id: attendance.meetingId, n: count() })
+      .from(attendance)
+      .where(inArray(attendance.meetingId, meetingIds))
+      .groupBy(attendance.meetingId),
+    db.select({ id: award.meetingId, n: count() }).from(award).where(inArray(award.meetingId, meetingIds)).groupBy(award.meetingId),
+  ]);
+  for (const r of records) counts.get(r.id)!.records = r.n;
+  for (const r of recognitions) counts.get(r.id)!.recognitions = r.n;
+  return counts;
+}
 
 export type MeetingWithVenue = typeof meeting.$inferSelect & {
   venue: typeof venue.$inferSelect | null;

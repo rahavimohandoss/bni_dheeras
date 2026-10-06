@@ -2,18 +2,20 @@ import { and, asc, count, desc, eq, gte } from "drizzle-orm";
 import { ChevronRightIcon } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { deleteMeeting, restoreMeeting } from "@/actions/meetings";
+import { restoreMeeting } from "@/actions/meetings";
 import { ConfirmButton } from "@/components/confirm-button";
+import { DeleteMeetingButton } from "@/components/delete-meeting-button";
 import { EmptyState, PageContainer, PageHeader } from "@/components/page-header";
 import { Pagination } from "@/components/pagination";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/db";
 import { meeting, venue } from "@/db/schema";
+import { recordCounts } from "@/lib/attendance/queries";
 import { pageFromParam, pageHref, paginate } from "@/lib/pagination";
 import { requireCapPage } from "@/lib/session";
 import { getAttendanceSettings } from "@/lib/settings";
-import { addDays, formatDateTime, formatTime, istWeekday, toIstDateInput } from "@/lib/time";
+import { addDays, formatDate, formatDateTime, formatTime, istWeekday, toIstDateInput } from "@/lib/time";
 import { MeetingForm, type MeetingFormValues } from "./meeting-form";
 
 export const metadata: Metadata = { title: "Meetings" };
@@ -21,7 +23,7 @@ export const metadata: Metadata = { title: "Meetings" };
 const PAGE_SIZE = 10;
 
 export default async function MeetingsAdminPage({ searchParams }: PageProps<"/admin/meetings">) {
-  await requireCapPage("meetings.manage");
+  const me = await requireCapPage("meetings.manage");
   const now = new Date();
   const isUpcoming = and(gte(meeting.endsAt, now), eq(meeting.status, "scheduled"));
   const [{ total }] = await db.select({ total: count() }).from(meeting).where(isUpcoming);
@@ -52,6 +54,7 @@ export default async function MeetingsAdminPage({ searchParams }: PageProps<"/ad
     db.select({ id: venue.id, name: venue.name }).from(venue).where(eq(venue.isActive, true)),
     getAttendanceSettings(),
   ]);
+  const cancelledCounts = await recordCounts(cancelled.map((c) => c.meeting.id));
 
   // Default the series to the week after the last scheduled weekly meeting, else next Thursday 7 AM.
   const nextDate = last ? addDays(last.startsAt, 7) : nextWeekday(4);
@@ -133,13 +136,15 @@ export default async function MeetingsAdminPage({ searchParams }: PageProps<"/ad
                         action={restoreMeeting.bind(null, m.id)}
                         destructive={false}
                       />
-                      <ConfirmButton
-                        label="Delete"
-                        title="Delete this meeting?"
-                        description="It is removed completely. A meeting with check-ins or recognitions can't be deleted."
-                        success="Meeting deleted."
-                        action={deleteMeeting.bind(null, m.id)}
-                      />
+                      {me.fullAccess || cancelledCounts.get(m.id)!.records === 0 ? (
+                        <DeleteMeetingButton
+                          meetingId={m.id}
+                          when={formatDate(m.startsAt)}
+                          {...cancelledCounts.get(m.id)!}
+                          finalized={false}
+                          size="sm"
+                        />
+                      ) : null}
                     </div>
                   </div>
                 ))}

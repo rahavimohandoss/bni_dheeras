@@ -38,7 +38,8 @@ export default async function AwardsAdminPage({ searchParams }: PageProps<"/admi
       />
       {selected ? (
         <AwardsEditor
-          key={selected.id}
+          // Starts over when the saved winners change (e.g. after Delete).
+          key={`${selected.id}:${existing.map((e) => `${e.awardTypeId}=${e.memberId}`).join(",")}`}
           meetings={relevant.map((m) => ({ id: m.id, label: `${formatDate(m.startsAt)} · ${m.title}` }))}
           meetingId={selected.id}
           types={types.map((t) => ({

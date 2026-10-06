@@ -7,22 +7,29 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { db } from "@/db";
 import { meeting, venue } from "@/db/schema";
+import { recordCounts } from "@/lib/attendance/queries";
 import { requireCapPage } from "@/lib/session";
 import { formatDate, toIstDateInput, toIstTimeInput } from "@/lib/time";
-import { deleteMeeting, restoreMeeting } from "@/actions/meetings";
+import { restoreMeeting } from "@/actions/meetings";
 import { ConfirmButton } from "@/components/confirm-button";
+import { DeleteMeetingButton } from "@/components/delete-meeting-button";
 import { CancelMeetingButton } from "./cancel-button";
 import { MeetingForm } from "../meeting-form";
 
 export const metadata: Metadata = { title: "Edit meeting" };
 
 export default async function EditMeetingPage({ params }: PageProps<"/admin/meetings/[id]">) {
-  await requireCapPage("meetings.manage");
+  const me = await requireCapPage("meetings.manage");
   const { id } = await params;
   const [m] = await db.select().from(meeting).where(eq(meeting.id, id));
   if (!m) notFound();
-  const venues = await db.select({ id: venue.id, name: venue.name }).from(venue).where(eq(venue.isActive, true));
+  const [venues, counts] = await Promise.all([
+    db.select({ id: venue.id, name: venue.name }).from(venue).where(eq(venue.isActive, true)),
+    recordCounts([m.id]).then((c) => c.get(m.id)!),
+  ]);
   const opensBefore = Math.round((m.startsAt.getTime() - m.checkinOpensAt.getTime()) / 60_000);
+  // A meeting with attendance is PALMS history: only the President or an admin can delete it.
+  const canDelete = me.fullAccess || (counts.records === 0 && m.status !== "finalized");
 
   return (
     <PageContainer>
@@ -47,16 +54,14 @@ export default async function EditMeetingPage({ params }: PageProps<"/admin/meet
                 destructive={false}
               />
             ) : null}
-            {m.status !== "finalized" ? (
-              <ConfirmButton
-                label="Delete"
-                title="Delete this meeting?"
-                description="Only for meetings created by mistake. A meeting with check-ins or recognitions can only be cancelled."
-                success="Meeting deleted."
-                action={deleteMeeting.bind(null, m.id)}
+            {canDelete ? (
+              <DeleteMeetingButton
+                meetingId={m.id}
+                when={formatDate(m.startsAt)}
+                {...counts}
+                finalized={m.status === "finalized"}
                 redirectTo="/admin/meetings"
                 variant="outline"
-                size="default"
               />
             ) : null}
           </>

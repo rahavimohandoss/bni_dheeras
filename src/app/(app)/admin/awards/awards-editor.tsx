@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { saveAwards, unpublishAwards } from "@/actions/awards";
+import { deleteAwards, saveAwards, unpublishAwards } from "@/actions/awards";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -159,6 +159,21 @@ export function AwardsEditor({
             />
           </>
         )}
+        {initial.length ? (
+          <ConfirmButton
+            label="Delete"
+            title="Delete this week's recognitions?"
+            description={
+              published
+                ? "They disappear from the Recognitions page and the leaderboard. Winners keep the notification they already got."
+                : "The saved draft is removed."
+            }
+            success="Recognitions deleted."
+            action={() => deleteAwards(meetingId)}
+            variant="outline"
+            size="default"
+          />
+        ) : null}
       </div>
     </div>
   );

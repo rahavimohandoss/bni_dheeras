@@ -1,6 +1,6 @@
 "use server";
 
-import { and, count, eq, inArray, ne } from "drizzle-orm";
+import { and, eq, inArray, ne } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
@@ -185,30 +185,48 @@ export async function restoreMeeting(id: string): Promise<ActionResult> {
  * Removes a meeting created by mistake. Meetings with attendance or
  * recognitions are history, so they can only be cancelled.
  */
-export async function deleteMeeting(id: string): Promise<ActionResult> {
+/**
+ * Deletes a meeting and everything recorded for it: attendance, check-in
+ * attempts, leave, substitutes, follow-ups and recognitions. A meeting with
+ * attendance (or a finalized one) is PALMS history, so only the President or
+ * an admin can delete it, with a reason. The audit log keeps what was removed.
+ */
+export async function deleteMeeting(id: string, reason?: string): Promise<ActionResult> {
   return runAction(async () => {
     const me = await assertCap("meetings.manage");
     const [m] = await db.select().from(meeting).where(eq(meeting.id, z.uuid().parse(id)));
     if (!m) throw new UserError("Meeting not found.");
-    if (m.status === "finalized") throw new UserError("A finalized meeting is part of PALMS history and can't be deleted.");
-    const [[{ n: marked }], [{ n: awards }]] = await Promise.all([
-      db.select({ n: count() }).from(attendance).where(eq(attendance.meetingId, m.id)),
-      db.select({ n: count() }).from(award).where(eq(award.meetingId, m.id)),
+    const [records, awards] = await Promise.all([
+      db
+        .select({ memberId: attendance.memberId, status: attendance.status, method: attendance.method, checkedInAt: attendance.checkedInAt })
+        .from(attendance)
+        .where(eq(attendance.meetingId, m.id)),
+      db
+        .select({ awardTypeId: award.awardTypeId, memberId: award.memberId, published: award.published })
+        .from(award)
+        .where(eq(award.meetingId, m.id)),
     ]);
-    if (marked > 0 || awards > 0) {
-      throw new UserError("This meeting already has check-ins or recognitions. Cancel it instead.");
+    const why = z.string().trim().max(300).parse(reason ?? "");
+    if (records.length > 0 || m.status === "finalized") {
+      if (!me.fullAccess) throw new UserError("This meeting has attendance. Only the President or an admin can delete it.");
+      if (why.length < 3) throw new UserError("Give a reason for deleting a meeting that has attendance.");
     }
     await db.transaction(async (tx) => {
       // Calendar slots linked to it (e.g. a feature presentation) stay on the calendar.
       await tx.update(calendarEvent).set({ meetingId: null }).where(eq(calendarEvent.meetingId, m.id));
+      // Everything else recorded for the meeting goes with it (ON DELETE CASCADE).
       await tx.delete(meeting).where(eq(meeting.id, m.id));
-    });
-    await audit({
-      actorId: me.id,
-      action: "meeting.delete",
-      entity: "meeting",
-      entityId: m.id,
-      before: { title: m.title, startsAt: m.startsAt, status: m.status },
+      await audit(
+        {
+          actorId: me.id,
+          action: "meeting.delete",
+          entity: "meeting",
+          entityId: m.id,
+          before: { title: m.title, startsAt: m.startsAt, status: m.status, attendance: records, recognitions: awards },
+          reason: why || null,
+        },
+        tx,
+      );
     });
     refresh();
     return null;
