@@ -194,7 +194,7 @@ Every attempt, passed or failed, is stored with a reason code. That one table dr
 | T11 | Forging or guessing QR tokens | Tokens use HMAC with a server-only secret per meeting; rate limits apply | Blocked |
 | T12 | Opening the kiosk QR page at home | The token endpoint answers only paired kiosks and sessions with LVH or a higher role. Every kiosk session is logged. | Blocked |
 | T13 | An LVH member or admin marks a friend present | A reason is required. The audit log records who, when and why. The summary shows a "Manual" badge, and the Secretary sees the manual count per meeting. | Visible + recorded |
-| T14 | Editing attendance after the meeting | Finalize locks the meeting; Secretary/Admin edits need a reason and are audit-logged | Controlled |
+| T14 | Editing attendance after the meeting | Finalize locks the meeting; Secretary/Admin edits need a reason and are audit-logged. Deleting a meeting that has attendance needs the President or an admin and a reason, and the audit log keeps a copy of the removed rows. | Controlled |
 | T15 | Creating extra fake member accounts | No self sign-up. Accounts come only from the admin roster, and email and phone must be unique. | Blocked |
 | T16 | A lost or changed phone used as an excuse | Device change request → approval → the old key is revoked at once | Controlled |
 
