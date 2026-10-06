@@ -8,7 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { getInstallState, getServerInstallState, promptInstall, subscribeInstall } from "@/lib/install-app";
 
-/** Home: "Get the app" for people using a phone browser. Hidden inside the installed app and on computers. */
+/**
+ * Home: "Get the app" in a phone browser, or on a computer whose browser can
+ * install it in one tap (Chrome, Edge). Hidden inside the installed app.
+ */
 export function InstallAppCard() {
   const state = useSyncExternalStore(subscribeInstall, getInstallState, getServerInstallState);
   const [pending, start] = useTransition();

@@ -11,10 +11,10 @@ type InstallPromptEvent = Event & {
 
 /**
  * - installed: running as the installed app (or just installed): show nothing.
- * - prompt: the browser can install it with one tap.
+ * - prompt: the browser can install it with one tap (phone or computer).
  * - ios: iPhone/iPad, where it's Share → Add to Home Screen.
  * - manual: another phone browser; install from its menu.
- * - hidden: a computer, or not known yet (server render).
+ * - hidden: a computer whose browser can't install it, or not known yet (server render).
  */
 export type InstallState = "installed" | "prompt" | "ios" | "manual" | "hidden";
 

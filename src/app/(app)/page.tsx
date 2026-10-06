@@ -63,6 +63,8 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
       <h1 className="mb-4 text-2xl font-bold">Hello, {firstName}</h1>
 
       <div className="space-y-4">
+        {/* Right under the greeting; shows only where the app can be installed. */}
+        <InstallAppCard />
         {pendingDevices > 0 || pendingLeave > 0 ? (
           <Card className="border-primary/30 bg-primary/5">
             <CardContent className="flex flex-wrap gap-2 py-3 text-sm">
@@ -210,8 +212,6 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             </CardContent>
           </Card>
         ) : null}
-
-        <InstallAppCard />
       </div>
     </PageContainer>
   );
