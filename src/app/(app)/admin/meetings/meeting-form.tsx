@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
-export type VenueOption = { id: string; name: string; geofenceM: number };
+export type VenueOption = { id: string; name: string };
 
 export type MeetingFormValues = {
   title: string;
@@ -19,7 +19,6 @@ export type MeetingFormValues = {
   date: string;
   startTime: string;
   endTime: string;
-  geofenceM: string;
   opensBeforeMin: string;
   weeks: string;
 };
@@ -47,7 +46,6 @@ export function MeetingForm({
   const [v, setV] = useState(initial);
   const [pending, start] = useTransition();
   const set = <K extends keyof MeetingFormValues>(k: K, value: MeetingFormValues[K]) => setV((s) => ({ ...s, [k]: value }));
-  const venue = venues.find((x) => x.id === v.venueId);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -57,7 +55,6 @@ export function MeetingForm({
         date: v.date,
         startTime: v.startTime,
         endTime: v.endTime,
-        geofenceM: v.geofenceM,
         opensBeforeMin: v.opensBeforeMin,
         venueId: v.venueId,
       };
@@ -110,8 +107,8 @@ export function MeetingForm({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="in_person">In person (location checked)</SelectItem>
-                <SelectItem value="online">Online (no location check)</SelectItem>
+                <SelectItem value="in_person">In person</SelectItem>
+                <SelectItem value="online">Online</SelectItem>
               </SelectContent>
             </Select>
           </Field>
@@ -148,17 +145,6 @@ export function MeetingForm({
             <Input inputMode="numeric" value={v.weeks} onChange={(e) => set("weeks", e.target.value.replace(/\D/g, ""))} />
           </Field>
         ) : null}
-        <Field
-          label="Geofence override (metres)"
-          hint={venue ? `Leave empty to use the venue's ${venue.geofenceM} m.` : "Leave empty to use the venue's radius."}
-        >
-          <Input
-            inputMode="numeric"
-            placeholder="Empty = venue radius"
-            value={v.geofenceM}
-            onChange={(e) => set("geofenceM", e.target.value.replace(/\D/g, ""))}
-          />
-        </Field>
         <Field label="Check-in opens (minutes before start)">
           <Input
             inputMode="numeric"

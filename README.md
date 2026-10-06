@@ -57,11 +57,11 @@ npm run dev                     # http://localhost:3000
   2. Open `/setup` and use **Admin recovery** to set a new password.
   3. Remove the token afterwards.
 - **Without demo data:** open `/setup`, enter `SETUP_TOKEN` and create the first admin with their own password.
-- **Dev-only test tools:** on the Check in page you can paste a kiosk token and pretend to be at the venue. They are compiled out of production builds, and the server still runs every check.
+- **Dev-only test tools:** on the Check in page you can paste a kiosk token instead of scanning it. They are compiled out of production builds, and the server still runs every check.
 
 ### Testing on a real phone
 
-Camera, GPS and the device key (WebCrypto) only work over HTTPS. The easiest way is a Vercel preview deployment.
+The camera, the device key (WebCrypto) and GPS for Near me only work over HTTPS. The easiest way is a Vercel preview deployment.
 
 On iPhone, use **Share → Add to Home Screen** first, then register the phone from the installed app. iPhone keeps the Home-Screen app's storage separate from Safari's.
 
@@ -90,7 +90,7 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
 
 ## Chapter rollout checklist
 
-1. **Admin → Venues:** put the pin on the meeting hall; geofence 150 m.
+1. **Admin → Venues:** the meeting hall's name and address. There's no geofence: check-in doesn't use location.
 2. **Admin → Meetings → Weekly series:** day and time. There's no grace period: a check-in after the start time is Late. Weeks that already have a meeting are skipped.
 3. **Admin → Members → Import CSV:** BNI Connect roster saved as CSV, or add members one by one.
    - The mobile number is each member's login ID.
@@ -116,14 +116,14 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
 | `npm run db:generate` | New SQL migration from `src/db/schema.ts` |
 | `npm run db:migrate` | Apply migrations to `DATABASE_URL` |
 | `npm run seed` | Demo data (local databases only) |
-| `npm test` | Unit tests (QR tokens, geofence, late rule, device signatures, pagination, celebrations…) |
+| `npm test` | Unit tests (QR tokens, late rule, device signatures, distances, pagination, celebrations…) |
 | `npm run typecheck` / `npm run lint` / `npm run build` | Checks and production build |
 
 ## Where things are
 
 | Path | Contents |
 |---|---|
-| `src/lib/attendance/` | Check-in rules:<br>• `service.ts`: the seven checks, LVH pass scan, manual check-in, finalize<br>• `qr-token.ts`: rotating HMAC token<br>• `device-crypto.ts`: device-key signatures<br>• `geo.ts`: geofence |
+| `src/lib/attendance/` | Check-in rules:<br>• `service.ts`: the six checks, LVH pass scan, manual check-in, finalize<br>• `qr-token.ts`: rotating HMAC token<br>• `device-crypto.ts`: device-key signatures |
 | `src/lib/device-key.ts` | The phone's non-extractable signing key (browser side) |
 | `src/actions/` | Server actions. Every one checks the session and the caller's capability. |
 | `src/lib/permissions.ts` | Roles → capabilities, separation-of-duties rule |
@@ -134,6 +134,6 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
 
 ## Known limits
 
-- **Proxies inside the venue can't be fully blocked.** A web app can't detect fake-GPS apps or a member handing their phone to someone in the room. These cases are made visible instead: names on the venue screen, flags, and the headcount check (see PLAN §1 and §4.3). With the selfie check turned off, this visibility is the only control for a phone handed over inside the venue.
+- **Proxy check-ins can't be fully blocked.** There's no geofence (PLAN D9), so someone in the room can send a photo of the live QR to an absent member, who has 30 seconds to scan it. A member can also hand their phone to someone in the room. These cases are made visible instead: names on the venue screen, flags, and the headcount check before finalize (see PLAN §1 and §4.3). With no geofence and no selfie check, this visibility is the only control. Watch the headcount mismatches during the shadow run.
 - **Tamil text in the dance-card PDF:** the PDF prints in the card's own font (Helvetica). Tamil letters and emoji come out as "?", and the form warns about this; ₹ prints as "Rs.". To change the card, replace `docs/dance-card-template.pdf`, run `node scripts/embed-dance-card-template.mjs` and update the line positions in `src/lib/dance-card.ts`.
 - **OpenStreetMap's public tile server** is fine for a chapter. For heavier use, set `NEXT_PUBLIC_MAP_TILE_URL` to another tile provider.

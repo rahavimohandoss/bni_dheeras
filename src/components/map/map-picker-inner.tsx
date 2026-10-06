@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { Circle, MapContainer, Marker, useMap, useMapEvents } from "react-leaflet";
+import { MapContainer, Marker, useMap, useMapEvents } from "react-leaflet";
 import type { Marker as LeafletMarker } from "leaflet";
 import { BaseTiles, DEFAULT_CENTER, pinIcon } from "./leaflet-base";
 
@@ -28,12 +28,10 @@ function FlyTo({ point }: { point: LatLng | null }) {
 export default function MapPickerInner({
   value,
   onChange,
-  radiusM,
   height = 320,
 }: {
   value: LatLng | null;
   onChange: (p: LatLng) => void;
-  radiusM?: number | null;
   height?: number;
 }) {
   const icon = useMemo(() => pinIcon(), []);
@@ -58,16 +56,7 @@ export default function MapPickerInner({
       <ClickToMove onPick={onChange} />
       <FlyTo point={value} />
       {value ? (
-        <>
-          <Marker position={[value.lat, value.lng]} draggable icon={icon} ref={markerRef} eventHandlers={handlers} />
-          {radiusM ? (
-            <Circle
-              center={[value.lat, value.lng]}
-              radius={radiusM}
-              pathOptions={{ color: "#cf2030", weight: 2, fillOpacity: 0.08 }}
-            />
-          ) : null}
-        </>
+        <Marker position={[value.lat, value.lng]} draggable icon={icon} ref={markerRef} eventHandlers={handlers} />
       ) : null}
     </MapContainer>
   );

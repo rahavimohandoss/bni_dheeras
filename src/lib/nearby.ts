@@ -2,7 +2,7 @@ import "server-only";
 import { and, eq, ne } from "drizzle-orm";
 import { db } from "@/db";
 import { member, memberLocation } from "@/db/schema";
-import { haversineM, type LatLng } from "@/lib/attendance/geo";
+import { haversineM, type LatLng } from "@/lib/geo";
 import { whatsappLink } from "@/lib/members";
 import { publicUrl } from "@/lib/storage";
 

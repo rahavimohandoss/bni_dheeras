@@ -21,10 +21,7 @@ export default async function EditMeetingPage({ params }: PageProps<"/admin/meet
   const { id } = await params;
   const [m] = await db.select().from(meeting).where(eq(meeting.id, id));
   if (!m) notFound();
-  const venues = await db
-    .select({ id: venue.id, name: venue.name, geofenceM: venue.geofenceM })
-    .from(venue)
-    .where(eq(venue.isActive, true));
+  const venues = await db.select({ id: venue.id, name: venue.name }).from(venue).where(eq(venue.isActive, true));
   const opensBefore = Math.round((m.startsAt.getTime() - m.checkinOpensAt.getTime()) / 60_000);
 
   return (
@@ -85,7 +82,6 @@ export default async function EditMeetingPage({ params }: PageProps<"/admin/meet
                 date: toIstDateInput(m.startsAt),
                 startTime: toIstTimeInput(m.startsAt),
                 endTime: toIstTimeInput(m.endsAt),
-                geofenceM: m.geofenceM === null ? "" : String(m.geofenceM),
                 opensBeforeMin: String(opensBefore),
                 weeks: "1",
               }}

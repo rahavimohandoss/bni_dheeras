@@ -1,7 +1,6 @@
 import { webcrypto } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { jwkThumbprint, parsePublicJwk, verifyDeviceSignature } from "@/lib/attendance/device-crypto";
-import { checkGeofence, haversineM } from "@/lib/attendance/geo";
 import { buildPass, parsePass, signedPayload } from "@/lib/attendance/payloads";
 import {
   newMeetingSecret,
@@ -51,36 +50,6 @@ describe("rotating venue QR token (T3, T6, T11)", () => {
     expect(parseQrToken("https://example.com")).toBeNull();
     expect(parseQrToken(`BNID1.${MEETING}.abc.xxxxxxxxxxxxxxxxxxxxxx`)).toBeNull();
     expect(parseQrToken(`BNID2.${MEETING}.1.xxxxxxxxxxxxxxxxxxxxxx`)).toBeNull();
-  });
-});
-
-describe("geofence (T4, T8, T9)", () => {
-  const venue = { lat: 9.9195, lng: 78.1193 };
-
-  it("computes distances in metres", () => {
-    // ~111 m per 0.001 degree of latitude.
-    expect(haversineM(venue, { lat: venue.lat + 0.001, lng: venue.lng })).toBeCloseTo(111.2, 0);
-  });
-
-  it("accepts inside the radius and rejects outside", () => {
-    const base = { accuracyM: 10, radiusM: 150, allowanceM: 50, maxAccuracyM: 500 };
-    expect(checkGeofence({ ...base, distanceM: 120 })).toBe("ok");
-    expect(checkGeofence({ ...base, distanceM: 2400 })).toBe("too_far");
-  });
-
-  it("forgives reported inaccuracy only up to the allowance", () => {
-    const base = { radiusM: 150, allowanceM: 50, maxAccuracyM: 500 };
-    expect(checkGeofence({ ...base, distanceM: 190, accuracyM: 45 })).toBe("ok");
-    // 300 m accuracy is capped at 50 m of slack: 260 - 50 > 150.
-    expect(checkGeofence({ ...base, distanceM: 260, accuracyM: 300 })).toBe("too_far");
-    // Strict mode.
-    expect(checkGeofence({ ...base, allowanceM: 0, distanceM: 160, accuracyM: 40 })).toBe("too_far");
-  });
-
-  it("refuses very rough fixes (Precise Location off)", () => {
-    expect(
-      checkGeofence({ distanceM: 50, accuracyM: 3000, radiusM: 150, allowanceM: 50, maxAccuracyM: 500 }),
-    ).toBe("poor_accuracy");
   });
 });
 

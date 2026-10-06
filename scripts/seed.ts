@@ -75,10 +75,6 @@ async function main() {
   await db.insert(s.setting).values({
     key: "attendance",
     value: {
-      defaultGraceMinutes: null,
-      defaultGeofenceM: 150,
-      gpsAccuracyAllowanceM: 50,
-      maxGpsAccuracyM: 500,
       checkinOpensBeforeMin: 60,
       absenceLimit: 3,
       absenceWindowMonths: 6,
@@ -141,7 +137,7 @@ async function main() {
 
   const [venue] = await db
     .insert(s.venue)
-    .values({ name: "Demo Hotel Meeting Hall", address: "Periyar, Madurai", lat: 9.9195, lng: 78.1193, geofenceM: 150 })
+    .values({ name: "Demo Hotel Meeting Hall", address: "Periyar, Madurai" })
     .returning();
 
   const mkMeeting = (startMs: number, title: string, status: "scheduled" | "finalized" = "scheduled") => ({

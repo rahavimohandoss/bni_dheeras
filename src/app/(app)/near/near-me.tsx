@@ -10,7 +10,7 @@ import { MemberAvatar } from "@/components/member-avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { formatDistance } from "@/lib/attendance/geo";
+import { formatDistance } from "@/lib/geo";
 import { getBestPosition } from "@/lib/geolocation";
 import type { NearbyMember } from "@/lib/nearby";
 import { cn } from "@/lib/utils";

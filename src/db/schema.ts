@@ -237,13 +237,11 @@ export const kioskPairingCode = pgTable("kiosk_pairing_code", {
 /* Venues, meetings and attendance                                     */
 /* ------------------------------------------------------------------ */
 
+/* No geofence (removed Oct 2026): check-in doesn't use location, so a venue has no map pin. */
 export const venue = pgTable("venue", {
   id: id(),
   name: text("name").notNull(),
   address: text("address"),
-  lat: doublePrecision("lat").notNull(),
-  lng: doublePrecision("lng").notNull(),
-  geofenceM: integer("geofence_m").notNull().default(150),
   isActive: boolean("is_active").notNull().default(true),
   createdAt: createdAt(),
 });
@@ -265,8 +263,6 @@ export const meeting = pgTable(
     checkinOpensAt: timestamp("checkin_opens_at", { withTimezone: true }).notNull(),
     /** Minutes after start before a check-in counts as Late. Always NULL now: the chapter uses no grace. */
     graceMinutes: integer("grace_minutes"),
-    /** Overrides the venue geofence for this meeting. NULL = use the venue's. */
-    geofenceM: integer("geofence_m"),
     qrSecret: text("qr_secret").notNull(),
     status: text("status", { enum: MEETING_STATUSES }).notNull().default("scheduled"),
     headcount: integer("headcount"),
@@ -299,10 +295,6 @@ export const attendance = pgTable(
     method: text("method", { enum: ATTENDANCE_METHODS }).notNull(),
     checkedInAt: timestamp("checked_in_at", { withTimezone: true }),
     deviceId: text("device_id").references(() => device.id),
-    lat: doublePrecision("lat"),
-    lng: doublePrecision("lng"),
-    accuracyM: doublePrecision("accuracy_m"),
-    distanceM: doublePrecision("distance_m"),
     flags: jsonb("flags").$type<string[]>().notNull().default([]),
     note: text("note"),
     setById: text("set_by_id").references(() => member.id),
@@ -327,8 +319,6 @@ export const checkinAttempt = pgTable(
     via: text("via", { enum: ["self_qr", "lvh_scan"] }).notNull(),
     result: text("result", { enum: ["ok", "rejected"] }).notNull(),
     reason: text("reason").notNull(),
-    distanceM: doublePrecision("distance_m"),
-    accuracyM: doublePrecision("accuracy_m"),
     ip: text("ip"),
     userAgent: text("user_agent"),
   },

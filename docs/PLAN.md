@@ -1,6 +1,6 @@
 # BNI Dheeras Chapter App — Build Plan
 
-**Status:** v1.2 · decisions confirmed 5 Oct 2026, changes D8 on 6 Oct 2026 · first build done (see §13)
+**Status:** v1.3 · decisions confirmed 5 Oct 2026, changes D8 and D9 on 6 Oct 2026 · first build done (see §13)
 **Scope:** every feature in the "BNI Dheeras Chapter App: Features" sheet, with two changes:
 
 1. **Attendance:** the LVH team no longer scans each member's QR. Instead a QR is shown on the venue screen and every member scans it. Nobody can mark attendance for someone else.
@@ -14,7 +14,7 @@
 > - **D2 Maps:** free Leaflet + OpenStreetMap, with Nominatim address search (no Google Maps).
 > - **D3 Hosting:** Vercel free (Hobby) plan.
 > - **D4 Selfie check:** not used.
-> - **D5 Late:** counts from the exact start time, with no grace period (the per-meeting grace field was removed on 6 Oct 2026). Geofence default is **150 m**, editable per venue and per meeting.
+> - **D5 Late:** counts from the exact start time, with no grace period (the per-meeting grace field was removed on 6 Oct 2026). The geofence was removed later the same day (D9).
 > - **D6:** Dheeras only, so no multi-chapter `chapter_id`.
 > - **D7 President = Admin:** the President of the current term has exactly the same access as an Admin, including the exemption from the separation-of-duties rule (§3). It follows the role, so it moves to the new President when the term changes.
 > - **D8 Changes (6 Oct 2026):**
@@ -22,15 +22,20 @@
 >   - **Suggestions & feedback** replaces it. Any member sends one; the President, VP, Secretary and admins read it, reply and set a status. "Hide my name" hides the sender from the Head Table, the notification and the audit log.
 >   - **Celebrations.** Members add their date of birth and wedding anniversary in My profile. The President, VP and Secretary see this month's and next month's on Home, and the whole year on the Celebrations page.
 >   - **Admin-only accounts are not chapter members** (for example "BNI Dheeras Admin"). They never check in and are left out of PALMS, absences, the directory, Near me, recognitions, celebrations and the Monday report.
->   - **Settings → Attendance rules** keeps only: check-in opens before start, absence limit and window, and the lateness flag count. Default grace, default geofence, the GPS accuracy limits and the lateness-flag window (weeks) are no longer in Settings and stay at their built-in values.
+>   - **Settings → Attendance rules** keeps only: check-in opens before start, absence limit and window, and the lateness flag count. Default grace and the lateness-flag window (weeks) are no longer in Settings and keep their built-in values. (The geofence and GPS settings went too, and then the geofence itself, D9.)
 >   - **Recognitions:** each award has only the fields it needs. Best Attire is winner only; Best 30-Second Presentation has no value; Star of the Week has no note and its value is the visitor count; Top Business Giver's value reads like "Rs 20 lakh".
+> - **D9 No geofence (6 Oct 2026):** check-in no longer reads the phone's location.
+>   - Removed: the location check, the venue map pin and radius, the per-meeting radius, the GPS settings, the GPS flags, and the check-in GPS stored so far.
+>   - Members don't need to allow location to check in, so GPS problems can't cause a false Absent or Late.
+>   - The cost: the QR's 30-second life is the only thing tying a check-in to the room. Someone in the room can send a photo or video of the venue screen to an absent member, who can scan it in time (T3, T4 in §4.3). That check-in still shows the member's name on the venue screen and adds to the check-in count that the headcount must match before finalize.
+>   - The device rules are unchanged: one approved phone per member, one member per phone (T1, T2).
 
 ---
 
 ## 0. Summary
 
 - **Stack:** Next.js 16.3 + TypeScript, Neon Postgres + Drizzle, Neon Object Storage for images, Better Auth (mobile number + password), Tailwind v4 + shadcn/ui in BNI colours. Ships as an installable PWA.
-- **Attendance:** the QR on the venue screen changes every 15 seconds, and members scan it inside the app. A check-in counts only if all seven checks in §4.2 pass. The main ones: the request comes from that member's single approved phone, the QR is under 30 seconds old, and the phone's GPS puts it at the venue.
+- **Attendance:** the QR on the venue screen changes every 15 seconds, and members scan it inside the app. A check-in counts only if all six checks in §4.2 pass. The main ones: the request comes from that member's single approved phone, and the QR is under 30 seconds old. Location isn't checked (D9).
 - **"One person, many logins" is blocked by design.** A phone can belong to only one member, and each member has only one approved phone. Logging into a second account on the same phone checks nobody in, and a new phone needs a person to approve it.
 - **Cheating that software can't block is made visible:**
   - every check-in shows the member's name and photo on the venue screen;
@@ -41,8 +46,8 @@
 
 ## 1. Hard truths before we build
 
-1. **No web app can close every loophole.** If a member hands their unlocked phone to someone at the venue, software alone can't tell. This design *blocks* proxies from outside the venue and through extra accounts. Proxies inside the venue become *visible and recorded*. Hardware-level checks (device attestation, fake-GPS detection) need a native app, which is listed under Later.
-2. **False absences are a bigger risk than fraud.** Dheeras attendance was 98.4%, #1 of 14 chapters in Madurai region (March 2026 data). If a GPS problem, a camera permission or a flat battery marks a present member "Absent" or "Late", members will quickly stop trusting the app. Three things guard against this:
+1. **No web app can close every loophole.** If a member hands their unlocked phone to someone at the venue, software alone can't tell. This design *blocks* proxies through extra accounts. Other proxies become *visible and recorded*. Since D9 that includes a member outside the venue scanning a QR forwarded from the room within 30 seconds. Hardware-level checks (device attestation) need a native app, which is listed under Later.
+2. **False absences are a bigger risk than fraud.** Dheeras attendance was 98.4%, #1 of 14 chapters in Madurai region (March 2026 data). If a camera permission or a flat battery marks a present member "Absent" or "Late", members will quickly stop trusting the app. (GPS problems were a third cause until the geofence was removed, D9.) Three things guard against this:
    - the LVH fallbacks in §4.4;
    - all timing comes from the server;
    - a **2-meeting shadow run** before app attendance becomes official.
@@ -66,7 +71,7 @@
 | PDF | `pdf-lib` in a route handler | Writes dance-card answers onto the chapter's own printed card |
 | Email | Resend (optional) | Email copies of alerts and the Monday report only |
 | Hosting | Vercel (Hobby), with functions pinned to `sin1` next to the database | Decision D3 |
-| Quality | Zod validation; Vitest for rules, tokens and distance; Playwright end-to-end tests with mocked camera and GPS; Sentry | |
+| Quality | Zod validation; Vitest for rules, tokens and distance; Playwright end-to-end tests with a mocked camera; Sentry | |
 
 ## 3. Roles & permissions
 
@@ -98,7 +103,7 @@ Admin is a technical super-user, and the President of the current term has exact
   - check-in opens (default: 60 minutes before start);
   - after the start time, check-ins count as Late (decision D5, no grace period);
   - check-in closes when the meeting ends.
-- For online meetings the geofence is switched off and LVH confirms attendance from the participant list.
+- Online meetings work the same way (the QR is shown on the shared screen); LVH can also confirm attendance from the participant list.
 - Up to the start time, a member can:
   - request **medical leave** (becomes M once approved);
   - **register a substitute** with name, phone and business (becomes S once LVH confirms the substitute arrived; A if they don't show);
@@ -115,17 +120,16 @@ Admin is a technical super-user, and the President of the current term has exact
 - **Member steps:**
   1. Open the app and tap *Scan to check in*.
   2. Scan the QR with the in-app camera.
-  3. The app reads GPS and the phone signs the request.
+  3. The phone signs the request. No location is read (D9).
   4. The result appears in about 2 seconds: "Checked in 6:52 AM — on time" or "Late — 7:08 AM".
 - Failure messages are plain:
   - "QR expired — scan the screen again"
-  - "You are 2.4 km from the venue"
   - "This phone is registered to another member"
   - "Your phone is waiting for approval — see the Attendance Coordinator"
 - **LVH live board** (on a phone or tablet) has five lists:
   - Checked in;
   - Not yet, with leave/substitute info and a call button;
-  - Rejected attempts: who, why and how far away;
+  - Rejected attempts: who and why;
   - Substitutes to confirm;
   - Visitors: a −/+ count, which can also be corrected on the PALMS summary.
 
@@ -150,7 +154,10 @@ Admin is a technical super-user, and the President of the current term has exact
     - lateness flags;
     - follow-up status.
 
-### 4.2 The seven checks behind every check-in (all on the server)
+### 4.2 The six checks behind every check-in (all on the server)
+
+There used to be a seventh, **Place** (a geofence around the venue). It was removed on 6 Oct 2026 (D9).
+
 
 1. **Session:** a logged-in, active member.
 2. **Device:** the request is signed by that member's approved device key.
@@ -160,15 +167,11 @@ Admin is a technical super-user, and the President of the current term has exact
    - The token is HMAC-SHA256 of the meeting and the current 15-second window, keyed with a per-meeting server secret.
    - Only the current or previous window is accepted, so a token is at most 30 seconds old.
    - The QR contains only this token, which is useless outside the app.
-4. **Place:**
-   - The distance to the venue pin must be within the geofence radius (default 150 m, set per venue and per meeting), with up to 50 m extra allowed for GPS inaccuracy.
-   - If GPS accuracy is worse than about 1 km, the check-in is refused with "turn on Precise Location".
-   - The 50 m and 1 km limits are built in (no longer in Settings, per D8). A developer can tune them after the shadow run.
-5. **Time:** the server clock (Asia/Kolkata) must be within the check-in window. The phone's clock is never used.
-6. **Once per member:** the database enforces one check-in per member per meeting. A second scan just shows "Already checked in at 6:52".
-7. **Once per device:** the database enforces one check-in per device per meeting.
+4. **Time:** the server clock (Asia/Kolkata) must be within the check-in window. The phone's clock is never used.
+5. **Once per member:** the database enforces one check-in per member per meeting. A second scan just shows "Already checked in at 6:52".
+6. **Once per device:** the database enforces one check-in per device per meeting.
 
-Every attempt, passed or failed, is stored with a reason code, distance and accuracy. That one table drives:
+Every attempt, passed or failed, is stored with a reason code. That one table drives:
 
 - rate limits (for example, 10 tries per 5 minutes per member and per device);
 - the "rejected attempts" list on the LVH board;
@@ -180,13 +183,13 @@ Every attempt, passed or failed, is stored with a reason code, distance and accu
 |---|---|---|---|
 | T1 | One person logs into several members' accounts on one phone and checks them all in | A phone's device key can belong to only one member, so other accounts on that phone can't check in. The attempt shows on the LVH board. | Blocked |
 | T2 | Someone uses another browser, incognito or a second phone for another member's account | Each member has one approved device. Every device, including the first, must be approved by the Attendance Coordinator or Secretary, ideally face-to-face. The member gets an email for every device change. | Blocked |
-| T3 | A screenshot of the QR is forwarded on WhatsApp | The QR changes every 15 s and expires within 30 s. The scanner only uses the live camera (no gallery upload), and the geofence still applies. | Blocked |
-| T4 | Someone relays the QR over a live video call and the absent member uses a fake-GPS app | The name and photo appear on the venue screen for the whole room. Anomaly flags and the finalize headcount add further checks. | Visible + recorded |
+| T3 | A photo of the QR is forwarded on WhatsApp | The QR changes every 15 s and expires within 30 s, and the scanner only uses the live camera (no gallery upload). Without the geofence (D9), an absent member who scans the forwarded photo off another screen within 30 s gets in. Their name and photo appear on the venue screen, and the headcount before finalize won't match. | Visible + recorded (was Blocked before D9) |
+| T4 | Someone relays the QR over a live video call | As T3: the name and photo appear on the venue screen for the whole room, and the finalize headcount shows the extra check-in. | Visible + recorded |
 | T5 | A member hands their phone to someone at the venue | The live wall and the headcount check (selfie check not used, per D4). | Visible + recorded |
 | T6 | Scanning twice, or replaying an old QR | One check-in per member per meeting; token window check | Blocked |
 | T7 | Checking in before or after the meeting, or on another day | The check-in window and Late status are computed from server time | Blocked |
 | T8 | Changing the phone's clock | The phone's time is never used | Blocked |
-| T9 | Fake GPS without the live QR | Still needs a QR under 30 s old, so this becomes T4 | Blocked |
+| T9 | Checking in without the live QR | Location isn't used (D9), but a check-in still needs a QR under 30 s old; with one, this becomes T3 | Blocked |
 | T10 | Sharing your password with a friend, or someone using the default password before the member has signed in | Logging in isn't enough; check-in needs the approved device | Blocked |
 | T11 | Forging or guessing QR tokens | Tokens use HMAC with a server-only secret per meeting; rate limits apply | Blocked |
 | T12 | Opening the kiosk QR page at home | The token endpoint answers only paired kiosks and sessions with LVH or a higher role. Every kiosk session is logged. | Blocked |
@@ -197,9 +200,9 @@ Every attempt, passed or failed, is stored with a reason code, distance and accu
 
 ### 4.4 Fallbacks, so members who are present are never marked absent
 
-1. **LVH scans the member's pass.** For a broken camera, bad indoor GPS or denied location access:
+1. **LVH scans the member's pass.** For a broken camera:
    - the member's app shows a "My check-in pass" QR, signed by their device and rotating every 30 s;
-   - an LVH phone scans it, and LVH's GPS is used for the location check.
+   - an LVH phone scans it.
 2. **Manual check-in by LVH.** For a dead battery or no phone. A reason is required, the action is audit-logged and the check-in gets a "Manual" badge.
 3. **Kiosk offline.** The kiosk shows a red "offline" banner and LVH switches to fallback 1.
 
@@ -220,8 +223,7 @@ Every attempt, passed or failed, is stored with a reason code, distance and accu
 
 - **iPhone storage:** a Home Screen app and Safari keep separate storage, and Safari can clear a site's storage after about 7 days without a visit. So iPhone users install the app to the Home Screen first and register their device *inside the installed app*. On Android the app asks for persistent storage.
 - **Clearing browser data deletes the device key.** After that, the member has to request a device change. Members are told this at onboarding.
-- **iPhone "Precise Location" switched off** gives accuracy of only about a kilometre. The app detects this and shows how to turn it on.
-- **Onboarding check:** camera permission, location permission, device registration and a test scan of a practice QR.
+- **Onboarding check:** camera permission, device registration and a test scan of a practice QR. Check-in doesn't need location permission (D9).
 - **Device-setup drive:** at one meeting, the LVH team helps every member install the app and log in. The Attendance Coordinator then approves each device on the spot by matching a short code shown on the member's screen. Until a device is approved, the member can use everything except check-in.
 
 ## 5. Location — "Members near me"
@@ -300,9 +302,9 @@ Single chapter (decision D6): tables have no `chapter_id`.
 | `terms`, `role_assignments` | Who holds which role in which term | |
 | `devices` | Public key, status (pending / approved / revoked), device label, approver | Each key unique; one approved device per member |
 | `kiosks` | Paired display screens | Token stored hashed; revocable |
-| `venues` | Name, address, coordinates, geofence radius | |
+| `venues` | Name, address | |
 | `meetings` | Type, venue, start, windows, QR secret, status, headcount, visitor count | |
-| `attendance` | P/L/A/M/S, method (self / LVH scan / manual / auto), time, device, distance, accuracy, flags, who set it | One row per member per meeting; each device used once per meeting |
+| `attendance` | P/L/A/M/S, method (self / LVH scan / manual / auto), time, device, flags, who set it | One row per member per meeting; each device used once per meeting |
 | `checkin_attempts` | Every attempt with a reason code | Feeds rate limits, the LVH board and flags |
 | `leave_requests` | Medical leave or informed absence, plus approval | |
 | `substitutes` | Substitute details and arrival confirmation | |
@@ -360,7 +362,7 @@ Better Auth adds its own tables (user, session, account, verification).
 - Every read and action is authorized on the server in a data-access layer. `proxy.ts` only handles quick redirects.
 - Cookies are httpOnly and secure. Server Actions have a built-in origin check, Zod validates every input, and security headers are set.
 - Image uploads go through the app server: signed-in members only, same-origin, max 3 MB, file bytes checked against the declared type, random object keys.
-- Check-in GPS coordinates are kept for 90 days in case of disputes, then reduced to the distance only.
+- Check-in doesn't collect location (D9). The check-in GPS recorded before that was deleted with the geofence.
 - At onboarding, a consent screen covers location sharing (India's DPDP Act). Members can ask to have their data deleted, and locations are never public.
 - Development uses the Neon `dev` branch and production uses `main`. Migrations run through drizzle-kit in CI, and point-in-time restore is available.
 
@@ -382,7 +384,7 @@ Attendance comes first because it's the riskiest feature and needs real meetings
 
 - Web Push or WhatsApp reminders.
 - Tamil UI.
-- A native app wrapper with device attestation and fake-GPS detection, if proxy attempts show up in the data.
+- If proxy check-ins show up in the data (headcount mismatches): bring back a location check, or a native app wrapper with device attestation.
 
 ## 11. Decisions (confirmed 5 Oct 2026; the original draft options are kept below for reference)
 
@@ -402,7 +404,7 @@ Attendance comes first because it's the riskiest feature and needs real meetings
 - **Roster:** BNI Connect Chapter Roster export or a CSV with name, email, phone, company and category.
 - **Current-term role holders:** President, VP, Secretary/Treasurer, LVH team, GARAM, coordinators.
 - **Venue:**
-  - the exact map pin of the meeting hall;
+  - the meeting hall's name and address;
   - meeting day and time;
   - whether there's a projector or TV for the kiosk (otherwise a tablet at the door).
 - **Dance card:** the chapter's current dance card (photo or PDF).
@@ -415,7 +417,7 @@ Built and checked locally (type-check, lint, 29 unit tests, production build, br
 - **Attendance:**
   - venues, weekly meetings, device registration and approval;
   - paired kiosk with rotating QR;
-  - member check-in running all seven checks;
+  - member check-in running all its checks (seven then; six since the geofence was removed, D9);
   - LVH live board with pass scan, manual check-in, substitutes and finalize with headcount;
   - PALMS summary (copy, CSV, print), absence counter and alerts, absentee follow-ups, Monday report;
   - audit log.
@@ -434,10 +436,12 @@ Added on 6 Oct 2026 (D8), checked the same way (type-check, lint, 36 unit tests,
 - Per-award recognition fields; unpublish.
 - Admin clean-up: pagination on long lists; delete and restore for cancelled meetings; reopen a finalized meeting; edit and delete terms; reject a pending phone; delete venues and calendar events with a confirmation; leave decision history; audit log filters; notification delete and "clear read".
 
+Removed on 6 Oct 2026 (D9): the geofence and everything tied to it. A check-in with no location was tested end to end (venue QR → "Checked in — Late").
+
 Verified by testing in the browser:
 
 - forged, expired and duplicate QR tokens are rejected;
-- check-in without location is rejected;
+- check-in without location was rejected (until D9 removed the location check);
 - a second member registering an already-registered phone is blocked (T1);
 - an Attendance Coordinator gets no manual check-in buttons.
 

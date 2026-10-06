@@ -4,12 +4,8 @@ import { z } from "zod";
 import { db } from "@/db";
 import { setting } from "@/db/schema";
 
+/* Older stored settings may still carry geofence and GPS keys; parsing drops them. */
 export const attendanceSettingsSchema = z.object({
-  defaultGeofenceM: z.number().int().min(25).max(2000),
-  /** How much reported GPS inaccuracy is forgiven, capped at this many metres. */
-  gpsAccuracyAllowanceM: z.number().int().min(0).max(500),
-  /** GPS fixes less accurate than this are refused. */
-  maxGpsAccuracyM: z.number().int().min(50).max(5000),
   checkinOpensBeforeMin: z.number().int().min(0).max(240),
   absenceLimit: z.number().int().min(1).max(12),
   absenceWindowMonths: z.number().int().min(1).max(12),
@@ -28,9 +24,6 @@ export const editableAttendanceSchema = attendanceSettingsSchema.pick({
 export type EditableAttendanceSettings = z.infer<typeof editableAttendanceSchema>;
 
 export const DEFAULT_ATTENDANCE_SETTINGS: AttendanceSettings = {
-  defaultGeofenceM: 150,
-  gpsAccuracyAllowanceM: 50,
-  maxGpsAccuracyM: 500,
   checkinOpensBeforeMin: 60,
   absenceLimit: 3,
   absenceWindowMonths: 6,

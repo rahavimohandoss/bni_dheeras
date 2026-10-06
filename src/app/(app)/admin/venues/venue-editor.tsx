@@ -5,7 +5,6 @@ import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { deleteVenue, saveVenue, setVenueActive } from "@/actions/venues";
 import { ConfirmButton } from "@/components/confirm-button";
-import { LocationPicker, type PickedPlace } from "@/components/map/location-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,13 +15,10 @@ type Venue = {
   id: string;
   name: string;
   address: string | null;
-  lat: number;
-  lng: number;
-  geofenceM: number;
   isActive: boolean;
 };
 
-export function VenueEditor({ venues, defaultGeofence }: { venues: Venue[]; defaultGeofence: number }) {
+export function VenueEditor({ venues }: { venues: Venue[] }) {
   const [editing, setEditing] = useState<Venue | "new" | null>(venues.length ? null : "new");
   return (
     <div className="space-y-4">
@@ -34,9 +30,7 @@ export function VenueEditor({ venues, defaultGeofence }: { venues: Venue[]; defa
               <div className="font-medium">
                 {v.name} {v.isActive ? null : <Badge variant="outline">inactive</Badge>}
               </div>
-              <div className="truncate text-sm text-muted-foreground">
-                {v.address ?? `${v.lat.toFixed(5)}, ${v.lng.toFixed(5)}`} · geofence {v.geofenceM} m
-              </div>
+              {v.address ? <div className="truncate text-sm text-muted-foreground">{v.address}</div> : null}
             </div>
             <Button variant="outline" size="sm" onClick={() => setEditing(v)}>
               Edit
@@ -49,7 +43,6 @@ export function VenueEditor({ venues, defaultGeofence }: { venues: Venue[]; defa
         <VenueForm
           key={editing === "new" ? "new" : editing.id}
           venue={editing === "new" ? null : editing}
-          defaultGeofence={defaultGeofence}
           onDone={() => setEditing(null)}
         />
       ) : (
@@ -92,25 +85,14 @@ function VenueButtons({ id, name, active }: { id: string; name: string; active: 
   );
 }
 
-function VenueForm({ venue, defaultGeofence, onDone }: { venue: Venue | null; defaultGeofence: number; onDone: () => void }) {
+function VenueForm({ venue, onDone }: { venue: Venue | null; onDone: () => void }) {
   const [name, setName] = useState(venue?.name ?? "");
-  const [place, setPlace] = useState<PickedPlace | null>(
-    venue ? { lat: venue.lat, lng: venue.lng, address: venue.address ?? undefined } : null,
-  );
   const [address, setAddress] = useState(venue?.address ?? "");
-  const [geofence, setGeofence] = useState(String(venue?.geofenceM ?? defaultGeofence));
   const [pending, start] = useTransition();
 
   function save() {
-    if (!place) return void toast.error("Put the pin on the venue first.");
     start(async () => {
-      const res = await saveVenue(venue?.id ?? null, {
-        name,
-        address: address || place.address || undefined,
-        lat: place.lat,
-        lng: place.lng,
-        geofenceM: Number(geofence),
-      });
+      const res = await saveVenue(venue?.id ?? null, { name, address });
       if (!res.ok) return void toast.error(res.error);
       toast.success("Venue saved.");
       onDone();
@@ -126,26 +108,9 @@ function VenueForm({ venue, defaultGeofence, onDone }: { venue: Venue | null; de
             <Input id="v-name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Hotel / hall name" />
           </div>
           <div className="space-y-1.5">
-            <Label htmlFor="v-geo">Geofence radius (metres)</Label>
-            <Input
-              id="v-geo"
-              inputMode="numeric"
-              value={geofence}
-              onChange={(e) => setGeofence(e.target.value.replace(/\D/g, ""))}
-            />
+            <Label htmlFor="v-addr">Address shown to members</Label>
+            <Input id="v-addr" value={address} onChange={(e) => setAddress(e.target.value)} />
           </div>
-        </div>
-        <LocationPicker
-          value={place}
-          onChange={(p) => {
-            setPlace(p);
-            if (p.address) setAddress(p.address);
-          }}
-          radiusM={Number(geofence) || null}
-        />
-        <div className="space-y-1.5">
-          <Label htmlFor="v-addr">Address shown to members</Label>
-          <Input id="v-addr" value={address} onChange={(e) => setAddress(e.target.value)} />
         </div>
         <div className="flex gap-2">
           <Button onClick={save} disabled={pending || !name}>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { approximatePoint, formatDistance, haversineM } from "@/lib/attendance/geo";
+import { approximatePoint, formatDistance, haversineM } from "@/lib/geo";
 import { isToday, nextMonth } from "@/lib/celebrations";
 import { toCsv } from "@/lib/csv";
 import { normalizePhone, parseLoginId, parseLooseDate, whatsappLink } from "@/lib/format";
@@ -100,6 +100,12 @@ describe("location privacy", () => {
     const shown = approximatePoint(home);
     expect(haversineM(home, shown)).toBeLessThan(400);
     expect(shown).not.toEqual(home);
+  });
+
+  it("measures distances in metres (Near me)", () => {
+    // ~111 m per 0.001 degree of latitude.
+    const shop = { lat: 9.9195, lng: 78.1193 };
+    expect(haversineM(shop, { lat: shop.lat + 0.001, lng: shop.lng })).toBeCloseTo(111.2, 0);
   });
 
   it("formats distances for people", () => {

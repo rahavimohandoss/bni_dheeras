@@ -6,7 +6,7 @@ import { z } from "zod";
 import { db } from "@/db";
 import { memberLocation } from "@/db/schema";
 import { type ActionResult, runAction } from "@/lib/action";
-import { approximatePoint } from "@/lib/attendance/geo";
+import { approximatePoint } from "@/lib/geo";
 import { type NearbyMember, membersNearby } from "@/lib/nearby";
 import { assertMember } from "@/lib/session";
 

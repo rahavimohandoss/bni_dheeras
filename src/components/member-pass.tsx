@@ -7,7 +7,7 @@ import { buildPass, PASS_ROTATE_MS, signedPayload } from "@/lib/attendance/paylo
 import { signWithDevice } from "@/lib/device-key";
 
 /**
- * Fallback for when scanning the venue QR fails (camera, GPS): a QR signed by
+ * Fallback for when scanning the venue QR fails (e.g. a broken camera): a QR signed by
  * this phone's device key, refreshed every 30 seconds, for an LVH member to scan.
  */
 export function MemberPass({ memberId, deviceId }: { memberId: string; deviceId: string }) {

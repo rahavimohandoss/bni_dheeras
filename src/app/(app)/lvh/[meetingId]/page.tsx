@@ -12,11 +12,6 @@ export default async function LvhBoardPage({ params }: PageProps<"/lvh/[meetingI
   const m = await getMeetingWithVenue(meetingId);
   if (!m) notFound();
   return (
-    <LvhBoard
-      meetingId={m.id}
-      canManual={me.caps.has("attendance.manual")}
-      canFinalize={me.caps.has("meeting.finalize")}
-      devVenue={process.env.NODE_ENV === "development" && m.venue ? { lat: m.venue.lat, lng: m.venue.lng } : null}
-    />
+    <LvhBoard meetingId={m.id} canManual={me.caps.has("attendance.manual")} canFinalize={me.caps.has("meeting.finalize")} />
   );
 }

@@ -11,10 +11,12 @@ import { assertCap } from "@/lib/session";
 
 const venueSchema = z.object({
   name: z.string().trim().min(2, "Name the venue").max(120),
-  address: z.string().trim().max(300).optional(),
-  lat: z.number().min(-90).max(90),
-  lng: z.number().min(-180).max(180),
-  geofenceM: z.coerce.number().int().min(25, "Geofence must be at least 25 m").max(2000),
+  address: z
+    .string()
+    .trim()
+    .max(300)
+    .optional()
+    .transform((v) => v || null),
 });
 
 export async function saveVenue(id: string | null, input: z.input<typeof venueSchema>): Promise<ActionResult<{ id: string }>> {

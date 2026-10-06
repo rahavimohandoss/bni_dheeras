@@ -33,12 +33,7 @@ export default async function ScanPage() {
             : "No meeting is scheduled."
         }
       />
-      <ScanClient
-        memberId={me.id}
-        devices={devices}
-        devVenue={isDev && meeting?.venue ? { lat: meeting.venue.lat, lng: meeting.venue.lng } : null}
-        isDev={isDev}
-      />
+      <ScanClient memberId={me.id} devices={devices} isDev={isDev} />
     </PageContainer>
   );
 }

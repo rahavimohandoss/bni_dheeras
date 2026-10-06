@@ -12,28 +12,6 @@ export function haversineM(a: LatLng, b: LatLng): number {
   return 2 * EARTH_RADIUS_M * Math.asin(Math.min(1, Math.sqrt(h)));
 }
 
-export type GeofenceInput = {
-  distanceM: number;
-  accuracyM: number;
-  radiusM: number;
-  /** Reported GPS inaccuracy forgiven, capped at this many metres. */
-  allowanceM: number;
-  /** Fixes less accurate than this are refused outright. */
-  maxAccuracyM: number;
-};
-
-export type GeofenceVerdict = "ok" | "too_far" | "poor_accuracy";
-
-/**
- * Inside the fence if the reported position, moved toward the venue by up to
- * min(accuracy, allowance), lands within the radius.
- */
-export function checkGeofence(input: GeofenceInput): GeofenceVerdict {
-  if (!Number.isFinite(input.accuracyM) || input.accuracyM > input.maxAccuracyM) return "poor_accuracy";
-  const slack = Math.min(Math.max(input.accuracyM, 0), input.allowanceM);
-  return input.distanceM - slack <= input.radiusM ? "ok" : "too_far";
-}
-
 export function isValidLatLng(lat: unknown, lng: unknown): boolean {
   return (
     typeof lat === "number" &&

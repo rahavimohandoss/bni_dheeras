@@ -17,13 +17,11 @@ import { membersWithRoles, notify } from "@/lib/notify";
 import { getAttendanceSettings } from "@/lib/settings";
 import { formatDate } from "@/lib/time";
 import { parsePublicJwk, verifyDeviceSignature } from "./device-crypto";
-import { checkGeofence, haversineM } from "./geo";
 import { PASS_MAX_AGE_MS, parsePass, signedPayload } from "./payloads";
 import { parseQrToken, verifyQrToken } from "./qr-token";
 import { absenceCounts, expectedMembers, getMeetingWithVenue, lateCounts, type MeetingWithVenue } from "./queries";
 import { checkinWindow, statusForCheckin } from "./rules";
 
-export type GeoFix = { lat: number; lng: number; accuracy: number };
 export type RequestMeta = { ip: string | null; userAgent: string | null };
 
 export type CheckinResult =
@@ -35,7 +33,7 @@ export type CheckinResult =
       memberName: string;
       already: boolean;
     }
-  | { ok: false; reason: string; distanceM?: number; memberName?: string };
+  | { ok: false; reason: string; memberName?: string };
 
 const ATTEMPT_WINDOW_MS = 5 * 60_000;
 const MAX_ATTEMPTS = 10;
@@ -46,8 +44,6 @@ type AttemptLog = {
   memberId?: string | null;
   deviceId?: string | null;
   via: "self_qr" | "lvh_scan";
-  distanceM?: number | null;
-  accuracyM?: number | null;
   meta: RequestMeta;
 };
 
@@ -59,8 +55,6 @@ async function logAttempt(base: AttemptLog, result: "ok" | "rejected", reason: s
     via: base.via,
     result,
     reason,
-    distanceM: base.distanceM ?? null,
-    accuracyM: base.accuracyM ?? null,
     ip: base.meta.ip,
     userAgent: base.meta.userAgent?.slice(0, 300) ?? null,
   });
@@ -87,30 +81,7 @@ function meetingGate(m: MeetingWithVenue | null, now: Date): string | null {
   const w = checkinWindow(now, m.checkinOpensAt, m.endsAt);
   if (w === "not_open_yet") return "not_open_yet";
   if (w === "closed") return "window_closed";
-  if (m.mode === "in_person" && !m.venue) return "meeting_closed";
   return null;
-}
-
-/** Location check for in-person meetings. Returns a rejection reason or null. */
-async function placeGate(
-  m: MeetingWithVenue,
-  geo: GeoFix | null,
-): Promise<{ reason: string | null; distanceM: number | null; flags: string[] }> {
-  if (m.mode !== "in_person" || !m.venue) return { reason: null, distanceM: null, flags: [] };
-  if (!geo) return { reason: "no_location", distanceM: null, flags: [] };
-  const settings = await getAttendanceSettings();
-  const distanceM = haversineM(geo, m.venue);
-  const verdict = checkGeofence({
-    distanceM,
-    accuracyM: geo.accuracy,
-    radiusM: m.geofenceM ?? m.venue.geofenceM,
-    allowanceM: settings.gpsAccuracyAllowanceM,
-    maxAccuracyM: settings.maxGpsAccuracyM,
-  });
-  const flags: string[] = [];
-  if (geo.accuracy > 100) flags.push("low_accuracy");
-  if (geo.accuracy <= 1) flags.push("suspicious_accuracy");
-  return { reason: verdict === "ok" ? null : verdict, distanceM, flags };
 }
 
 /** Another member checked in seconds ago from the same network and browser. */
@@ -139,8 +110,6 @@ type WriteCheckin = {
   memberName: string;
   method: "self_qr" | "lvh_scan";
   deviceId: string;
-  geo: GeoFix | null;
-  distanceM: number | null;
   flags: string[];
   setById: string | null;
   now: Date;
@@ -170,10 +139,6 @@ async function writeCheckin(w: WriteCheckin): Promise<CheckinResult> {
     method: w.method,
     checkedInAt: w.now,
     deviceId: w.deviceId,
-    lat: w.geo?.lat ?? null,
-    lng: w.geo?.lng ?? null,
-    accuracyM: w.geo?.accuracy ?? null,
-    distanceM: w.distanceM,
     flags: w.flags,
     setById: w.setById,
   } as const;
@@ -218,9 +183,9 @@ async function writeCheckin(w: WriteCheckin): Promise<CheckinResult> {
 }
 
 /**
- * A member scanned the venue QR on their own phone. All seven checks run here:
- * session (caller), device signature, fresh QR, place, time, once per member,
- * once per device.
+ * A member scanned the venue QR on their own phone. All six checks run here:
+ * session (caller), device signature, fresh QR, time, once per member, once
+ * per device. There's no location check (the geofence was removed).
  */
 export async function selfCheckin(input: {
   memberId: string;
@@ -228,19 +193,13 @@ export async function selfCheckin(input: {
   qrToken: string;
   thumbprint: string;
   signature: string;
-  geo: GeoFix | null;
   meta: RequestMeta;
 }): Promise<CheckinResult> {
   const now = new Date();
-  const log: AttemptLog = {
-    memberId: input.memberId,
-    via: "self_qr",
-    accuracyM: input.geo?.accuracy ?? null,
-    meta: input.meta,
-  };
-  const reject = async (reason: string, distanceM?: number | null) => {
-    await logAttempt({ ...log, distanceM: distanceM ?? null }, "rejected", reason);
-    return { ok: false as const, reason, distanceM: distanceM ?? undefined };
+  const log: AttemptLog = { memberId: input.memberId, via: "self_qr", meta: input.meta };
+  const reject = async (reason: string) => {
+    await logAttempt(log, "rejected", reason);
+    return { ok: false as const, reason };
   };
 
   if (await tooManyAttempts(input.memberId, now)) return reject("rate_limited");
@@ -268,24 +227,18 @@ export async function selfCheckin(input: {
     jwk && (await verifyDeviceSignature(jwk, signedPayload.checkin(input.memberId, input.qrToken), input.signature));
   if (!sigOk) return reject("bad_signature");
 
-  const place = await placeGate(m, input.geo);
-  if (place.reason) return reject(place.reason, place.distanceM);
-
-  const flags = [...place.flags, ...(await burstFlag(m.id, input.memberId, input.meta, now))];
   const result = await writeCheckin({
     m,
     memberId: input.memberId,
     memberName: input.memberName,
     method: "self_qr",
     deviceId: dev.id,
-    geo: input.geo,
-    distanceM: place.distanceM,
-    flags,
+    flags: await burstFlag(m.id, input.memberId, input.meta, now),
     setById: null,
     now,
   });
   await logAttempt(
-    { ...log, distanceM: place.distanceM },
+    log,
     result.ok ? "ok" : "rejected",
     result.ok ? (result.already ? "already" : "checked_in") : result.reason,
   );
@@ -294,20 +247,19 @@ export async function selfCheckin(input: {
 
 /**
  * Fallback 1: an LVH member scans the member's "check-in pass" (a QR signed by
- * the member's approved phone). The LVH member's own location is checked.
+ * the member's approved phone).
  */
 export async function passCheckin(input: {
   lvhId: string;
   meetingId: string;
   pass: string;
-  geo: GeoFix | null;
   meta: RequestMeta;
 }): Promise<CheckinResult> {
   const now = new Date();
-  const log: AttemptLog = { meetingId: input.meetingId, via: "lvh_scan", accuracyM: input.geo?.accuracy, meta: input.meta };
-  const reject = async (reason: string, extra: { distanceM?: number | null; memberName?: string } = {}) => {
-    await logAttempt({ ...log, distanceM: extra.distanceM ?? null }, "rejected", reason);
-    return { ok: false as const, reason, distanceM: extra.distanceM ?? undefined, memberName: extra.memberName };
+  const log: AttemptLog = { meetingId: input.meetingId, via: "lvh_scan", meta: input.meta };
+  const reject = async (reason: string, memberName?: string) => {
+    await logAttempt(log, "rejected", reason);
+    return { ok: false as const, reason, memberName };
   };
 
   const pass = parsePass(input.pass);
@@ -322,24 +274,21 @@ export async function passCheckin(input: {
     .from(member)
     .where(eq(member.id, pass.memberId));
   if (!who) return reject("pass_invalid");
-  if (who.status !== "active") return reject("inactive", { memberName: who.fullName });
+  if (who.status !== "active") return reject("inactive", who.fullName);
 
   const [dev] = await db.select().from(device).where(eq(device.id, pass.deviceId));
-  if (!dev || dev.memberId !== who.id) return reject("pass_invalid", { memberName: who.fullName });
+  if (!dev || dev.memberId !== who.id) return reject("pass_invalid", who.fullName);
   if (dev.status !== "approved") {
-    return reject(dev.status === "pending" ? "device_pending" : "device_revoked", { memberName: who.fullName });
+    return reject(dev.status === "pending" ? "device_pending" : "device_revoked", who.fullName);
   }
   const jwk = parsePublicJwk(dev.publicKeyJwk);
   const sigOk =
     jwk && (await verifyDeviceSignature(jwk, signedPayload.pass(who.id, dev.id, pass.ts), pass.signature));
-  if (!sigOk) return reject("pass_invalid", { memberName: who.fullName });
+  if (!sigOk) return reject("pass_invalid", who.fullName);
 
   const m = await getMeetingWithVenue(input.meetingId);
   const gate = meetingGate(m, now);
-  if (gate || !m) return reject(gate ?? "meeting_not_found", { memberName: who.fullName });
-
-  const place = await placeGate(m, input.geo);
-  if (place.reason) return reject(place.reason, { distanceM: place.distanceM, memberName: who.fullName });
+  if (gate || !m) return reject(gate ?? "meeting_not_found", who.fullName);
 
   const result = await writeCheckin({
     m,
@@ -347,14 +296,12 @@ export async function passCheckin(input: {
     memberName: who.fullName,
     method: "lvh_scan",
     deviceId: dev.id,
-    geo: input.geo,
-    distanceM: place.distanceM,
-    flags: place.flags,
+    flags: [],
     setById: input.lvhId,
     now,
   });
   await logAttempt(
-    { ...log, distanceM: place.distanceM },
+    log,
     result.ok ? "ok" : "rejected",
     result.ok ? (result.already ? "already" : "checked_in") : result.reason,
   );

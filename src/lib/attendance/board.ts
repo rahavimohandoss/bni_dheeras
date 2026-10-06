@@ -25,14 +25,13 @@ export type BoardMember = {
   at: string | null;
   flags: string[];
   note: string | null;
-  distanceM: number | null;
   leave: { kind: "medical" | "informed"; status: string; reason: string | null } | null;
   substitute: { name: string; phone: string; business: string | null; arrived: boolean } | null;
 };
 
 export type BoardData = {
   members: BoardMember[];
-  rejected: { at: string; name: string | null; reason: string; distanceM: number | null; via: string }[];
+  rejected: { at: string; name: string | null; reason: string; via: string }[];
   visitors: number;
 };
 
@@ -48,7 +47,6 @@ export async function getBoardData(m: MeetingWithVenue): Promise<BoardData> {
         at: checkinAttempt.at,
         name: member.fullName,
         reason: checkinAttempt.reason,
-        distanceM: checkinAttempt.distanceM,
         via: checkinAttempt.via,
       })
       .from(checkinAttempt)
@@ -93,7 +91,6 @@ export async function getBoardData(m: MeetingWithVenue): Promise<BoardData> {
       at: a?.checkedInAt?.toISOString() ?? null,
       flags: a?.flags ?? [],
       note: a?.note ?? null,
-      distanceM: a?.distanceM ?? null,
       leave: l ? { kind: l.kind, status: l.status, reason: l.reason } : null,
       substitute: s ? { name: s.name, phone: s.phone, business: s.business, arrived: !!s.arrivedAt } : null,
     };
@@ -101,13 +98,7 @@ export async function getBoardData(m: MeetingWithVenue): Promise<BoardData> {
 
   return {
     members,
-    rejected: attempts.map((a) => ({
-      at: a.at.toISOString(),
-      name: a.name,
-      reason: a.reason,
-      distanceM: a.distanceM,
-      via: a.via,
-    })),
+    rejected: attempts.map((a) => ({ at: a.at.toISOString(), name: a.name, reason: a.reason, via: a.via })),
     visitors: m.visitorCount ?? 0,
   };
 }

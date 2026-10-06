@@ -4,7 +4,6 @@ import Link from "next/link";
 import { deleteMeeting, restoreMeeting } from "@/actions/meetings";
 import { ConfirmButton } from "@/components/confirm-button";
 import { EmptyState, PageContainer, PageHeader } from "@/components/page-header";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { db } from "@/db";
@@ -33,7 +32,7 @@ export default async function MeetingsAdminPage() {
       .where(and(gte(meeting.endsAt, new Date()), eq(meeting.status, "cancelled")))
       .orderBy(asc(meeting.startsAt))
       .limit(30),
-    db.select({ id: venue.id, name: venue.name, geofenceM: venue.geofenceM }).from(venue).where(eq(venue.isActive, true)),
+    db.select({ id: venue.id, name: venue.name }).from(venue).where(eq(venue.isActive, true)),
     getAttendanceSettings(),
   ]);
 
@@ -48,7 +47,6 @@ export default async function MeetingsAdminPage() {
     date: toIstDateInput(nextDate),
     startTime: last ? toTime(last.startsAt) : "07:00",
     endTime: last ? toTime(last.endsAt) : "08:30",
-    geofenceM: "",
     opensBeforeMin: String(settings.checkinOpensBeforeMin),
     weeks: "8",
   };
@@ -75,15 +73,12 @@ export default async function MeetingsAdminPage() {
               {upcoming.map(({ meeting: m, venueName }) => (
                 <Link key={m.id} href={`/admin/meetings/${m.id}`}>
                   <Card className="mb-2 hover:border-primary/40">
-                    <CardContent className="flex flex-wrap items-center justify-between gap-2 py-3">
-                      <div>
-                        <div className="font-medium">{m.title}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {formatDateTime(m.startsAt)} – {formatTime(m.endsAt)} ·{" "}
-                          {m.mode === "online" ? "Online" : (venueName ?? "No venue")}
-                        </div>
+                    <CardContent className="py-3">
+                      <div className="font-medium">{m.title}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {formatDateTime(m.startsAt)} – {formatTime(m.endsAt)} ·{" "}
+                        {m.mode === "online" ? "Online" : (venueName ?? "No venue")}
                       </div>
-                      {m.geofenceM ? <Badge variant="outline">{m.geofenceM} m</Badge> : null}
                     </CardContent>
                   </Card>
                 </Link>

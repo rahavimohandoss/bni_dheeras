@@ -31,10 +31,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VisitorCounter } from "@/components/visitor-counter";
-import { formatDistance } from "@/lib/attendance/geo";
 import { REJECTION_MESSAGES } from "@/lib/attendance/rules";
 import type { BoardData, BoardMember } from "@/lib/attendance/board";
-import { getBestPosition } from "@/lib/geolocation";
 import { formatTime } from "@/lib/time";
 
 type Feed = BoardData & {
@@ -51,8 +49,6 @@ type Feed = BoardData & {
 };
 
 const FLAG_LABELS: Record<string, string> = {
-  low_accuracy: "Weak GPS",
-  suspicious_accuracy: "Suspicious GPS",
   same_phone_burst: "Same phone/network as another check-in",
 };
 
@@ -79,12 +75,10 @@ export function LvhBoard({
   meetingId,
   canManual,
   canFinalize,
-  devVenue,
 }: {
   meetingId: string;
   canManual: boolean;
   canFinalize: boolean;
-  devVenue: { lat: number; lng: number } | null;
 }) {
   const router = useRouter();
   const [feed, setFeed] = useState<Feed | null>(null);
@@ -275,7 +269,6 @@ export function LvhBoard({
                 <span className="font-medium">{r.name ?? "Unknown"}</span>
                 <span className="text-muted-foreground">
                   {REJECTION_MESSAGES[r.reason]?.split(".")[0] ?? r.reason}
-                  {r.distanceM ? ` (${formatDistance(r.distanceM)} away)` : ""}
                   {r.via === "lvh_scan" ? " · pass scan" : ""}
                 </span>
               </div>
@@ -286,13 +279,7 @@ export function LvhBoard({
       </Tabs>
 
       <ManualDialog meetingId={meetingId} target={manual} onClose={() => setManual(null)} onDone={load} />
-      <PassScanDialog
-        open={scanOpen}
-        onOpenChange={setScanOpen}
-        meetingId={meetingId}
-        devVenue={devVenue}
-        onDone={load}
-      />
+      <PassScanDialog open={scanOpen} onOpenChange={setScanOpen} meetingId={meetingId} onDone={load} />
       <FinalizeDialog
         open={finalizeOpen}
         onOpenChange={setFinalizeOpen}
@@ -446,13 +433,11 @@ function PassScanDialog({
   open,
   onOpenChange,
   meetingId,
-  devVenue,
   onDone,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
   meetingId: string;
-  devVenue: { lat: number; lng: number } | null;
   onDone: () => void;
 }) {
   const [round, setRound] = useState(0);
@@ -461,13 +446,7 @@ function PassScanDialog({
 
   async function handle(pass: string) {
     setBusy(true);
-    let geo = null;
-    try {
-      geo = devVenue ? { ...devVenue, accuracy: 15 } : await getBestPosition();
-    } catch {
-      geo = null;
-    }
-    const res = await scanMemberPass({ meetingId, pass, geo });
+    const res = await scanMemberPass({ meetingId, pass });
     if (res.ok) {
       const msg = `${res.memberName}: ${res.already ? "already in" : res.status === "L" ? "checked in (Late)" : "checked in"}`;
       toast.success(msg);
@@ -487,9 +466,7 @@ function PassScanDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Scan a member&apos;s check-in pass</DialogTitle>
-          <DialogDescription>
-            Ask the member to open Check in → My check-in pass. Your location is used to confirm you&apos;re at the venue.
-          </DialogDescription>
+          <DialogDescription>Ask the member to open Check in → My check-in pass.</DialogDescription>
         </DialogHeader>
         {open ? (
           busy ? (

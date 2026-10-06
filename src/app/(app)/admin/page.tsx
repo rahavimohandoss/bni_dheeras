@@ -23,9 +23,9 @@ export const metadata: Metadata = { title: "Admin" };
 const LINKS: { href: string; title: string; text: string; icon: React.ElementType; caps: Capability[] }[] = [
   { href: "/admin/devices", title: "Device approvals", text: "Approve or remove members' check-in phones", icon: ShieldCheckIcon, caps: ["devices.approve"] },
   { href: "/admin/leave", title: "Medical leave", text: "Approve medical leave requests", icon: StethoscopeIcon, caps: ["leave.approve"] },
-  { href: "/admin/meetings", title: "Meetings", text: "Schedule weekly meetings, times, geofence", icon: CalendarCogIcon, caps: ["meetings.manage"] },
+  { href: "/admin/meetings", title: "Meetings", text: "Schedule weekly meetings and times", icon: CalendarCogIcon, caps: ["meetings.manage"] },
   { href: "/admin/attendance", title: "Attendance & PALMS", text: "Past meetings, PALMS summaries, follow-ups", icon: ClipboardListIcon, caps: ["palms.view", "meeting.finalize"] },
-  { href: "/admin/venues", title: "Venues", text: "Meeting places and geofence radius", icon: MapPinIcon, caps: ["meetings.manage"] },
+  { href: "/admin/venues", title: "Venues", text: "Meeting places and addresses", icon: MapPinIcon, caps: ["meetings.manage"] },
   { href: "/admin/members", title: "Members", text: "Roster, add members, import CSV", icon: UsersIcon, caps: ["members.manage"] },
   { href: "/admin/roles", title: "Roles & terms", text: "Who holds which role this term", icon: UserCogIcon, caps: ["roles.manage"] },
   { href: "/admin/awards", title: "Weekly recognitions", text: "Pick this week's winners", icon: TrophyIcon, caps: ["awards.manage"] },

@@ -25,12 +25,10 @@ type SearchResult = { label: string; lat: number; lng: number; area: string | nu
 export function LocationPicker({
   value,
   onChange,
-  radiusM,
   height,
 }: {
   value: PickedPlace | null;
   onChange: (p: PickedPlace) => void;
-  radiusM?: number | null;
   height?: number;
 }) {
   const [query, setQuery] = useState("");
@@ -109,7 +107,7 @@ export function LocationPicker({
         {busy === "gps" ? <Loader2Icon className="animate-spin" /> : <LocateFixedIcon />}
         Use my current location
       </Button>
-      <MapPickerInner value={value} onChange={reverse} radiusM={radiusM} height={height} />
+      <MapPickerInner value={value} onChange={reverse} height={height} />
       <p className="text-xs text-muted-foreground">Tap the map or drag the pin to the exact spot.</p>
     </div>
   );

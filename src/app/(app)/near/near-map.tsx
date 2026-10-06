@@ -6,7 +6,7 @@ import { useEffect, useMemo } from "react";
 import { MapContainer, Marker, Popup, useMap } from "react-leaflet";
 import { initials } from "@/components/member-avatar";
 import { avatarIcon, BaseTiles } from "@/components/map/leaflet-base";
-import { formatDistance } from "@/lib/attendance/geo";
+import { formatDistance } from "@/lib/geo";
 import type { NearbyMember } from "@/lib/nearby";
 
 type Origin = { lat: number; lng: number; label: string };

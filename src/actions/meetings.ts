@@ -23,8 +23,6 @@ const timesSchema = z.object({
   date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Pick a date"),
   startTime: z.string().regex(/^\d{2}:\d{2}$/, "Pick a start time"),
   endTime: z.string().regex(/^\d{2}:\d{2}$/, "Pick an end time"),
-  /** Empty = use the venue's geofence. */
-  geofenceM: optionalInt(25, 2000),
   opensBeforeMin: optionalInt(0, 240),
 });
 
@@ -67,7 +65,6 @@ export async function createMeeting(input: z.input<typeof meetingSchema>): Promi
         venueId,
         ...times,
         graceMinutes: null,
-        geofenceM: data.geofenceM,
         qrSecret: newMeetingSecret(),
       })
       .returning({ id: meeting.id });
@@ -103,7 +100,6 @@ export async function generateWeekly(input: z.input<typeof weeklySchema>): Promi
       endsAt: addDays(first.endsAt, w * 7),
       checkinOpensAt: addDays(first.checkinOpensAt, w * 7),
       graceMinutes: null,
-      geofenceM: data.geofenceM,
       qrSecret: newMeetingSecret(),
     }));
     const taken = new Set(
@@ -140,7 +136,6 @@ export async function updateMeeting(id: string, input: z.input<typeof meetingSch
         venueId,
         ...times,
         graceMinutes: null,
-        geofenceM: data.geofenceM,
       })
       .where(and(eq(meeting.id, before.id), eq(meeting.status, "scheduled")));
     await audit({
@@ -148,7 +143,7 @@ export async function updateMeeting(id: string, input: z.input<typeof meetingSch
       action: "meeting.update",
       entity: "meeting",
       entityId: before.id,
-      before: { title: before.title, startsAt: before.startsAt, geofenceM: before.geofenceM },
+      before: { title: before.title, startsAt: before.startsAt },
       after: data,
     });
     refresh();

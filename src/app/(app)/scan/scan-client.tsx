@@ -1,6 +1,6 @@
 "use client";
 
-import { CheckCircle2Icon, Loader2Icon, MapPinIcon, ScanLineIcon, XCircleIcon } from "lucide-react";
+import { CheckCircle2Icon, Loader2Icon, ScanLineIcon, XCircleIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { checkIn } from "@/actions/checkin";
@@ -15,51 +15,27 @@ import { signedPayload } from "@/lib/attendance/payloads";
 import { REJECTION_MESSAGES } from "@/lib/attendance/rules";
 import type { CheckinResult } from "@/lib/attendance/service";
 import { deviceThumbprint, getDeviceKey, signWithDevice } from "@/lib/device-key";
-import { type Fix, GeoError, getBestPosition } from "@/lib/geolocation";
-import { formatDistance } from "@/lib/attendance/geo";
 import { formatTime } from "@/lib/time";
 
-type Phase = "idle" | "scanning" | "locating" | "submitting" | "done";
+type Phase = "idle" | "scanning" | "submitting" | "done";
 
-export function ScanClient({
-  memberId,
-  devices,
-  devVenue,
-  isDev,
-}: {
-  memberId: string;
-  devices: DeviceSummary[];
-  devVenue: { lat: number; lng: number } | null;
-  isDev: boolean;
-}) {
+export function ScanClient({ memberId, devices, isDev }: { memberId: string; devices: DeviceSummary[]; isDev: boolean }) {
   const router = useRouter();
   const [local] = useLocalDevice(devices);
   const [phase, setPhase] = useState<Phase>("idle");
   const [result, setResult] = useState<CheckinResult | null>(null);
   const [problem, setProblem] = useState("");
   const [devToken, setDevToken] = useState("");
-  const [devAtVenue, setDevAtVenue] = useState(true);
 
   async function submit(qrToken: string) {
     setProblem("");
-    setPhase("locating");
-    let geo: Fix | null = null;
-    try {
-      geo =
-        isDev && devAtVenue && devVenue
-          ? { lat: devVenue.lat, lng: devVenue.lng, accuracy: 15 }
-          : await getBestPosition();
-    } catch (e) {
-      // Let the server decide: online meetings don't need location.
-      if (e instanceof GeoError && e.code === "denied") setProblem(e.message);
-    }
     setPhase("submitting");
     try {
       const key = await getDeviceKey();
       if (!key) throw new Error("This phone isn't registered.");
       const thumbprint = await deviceThumbprint(key.publicJwk);
       const signature = await signWithDevice(signedPayload.checkin(memberId, qrToken));
-      const res = await checkIn({ qrToken, thumbprint, signature, geo });
+      const res = await checkIn({ qrToken, thumbprint, signature });
       setResult(res);
     } catch (e) {
       setResult({ ok: false, reason: "bad_signature" });
@@ -95,9 +71,7 @@ export function ScanClient({
               <ScanLineIcon className="size-14 text-primary" />
               <div>
                 <p className="font-semibold">Point your camera at the QR on the venue screen</p>
-                <p className="text-sm text-muted-foreground">
-                  The QR changes every 15 seconds. Your location is checked once, when you scan.
-                </p>
+                <p className="text-sm text-muted-foreground">The QR changes every 15 seconds.</p>
               </div>
               <Button size="lg" className="h-12 w-full max-w-xs text-base" onClick={() => setPhase("scanning")}>
                 Start scanning
@@ -115,15 +89,11 @@ export function ScanClient({
           </div>
         ) : null}
 
-        {phase === "locating" || phase === "submitting" ? (
+        {phase === "submitting" ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-3 py-10 text-center">
-              {phase === "locating" ? (
-                <MapPinIcon className="size-10 animate-pulse text-primary" />
-              ) : (
-                <Loader2Icon className="size-10 animate-spin text-primary" />
-              )}
-              <p className="font-medium">{phase === "locating" ? "Checking your location…" : "Checking you in…"}</p>
+              <Loader2Icon className="size-10 animate-spin text-primary" />
+              <p className="font-medium">Checking you in…</p>
             </CardContent>
           </Card>
         ) : null}
@@ -149,10 +119,6 @@ export function ScanClient({
                 value={devToken}
                 onChange={(e) => setDevToken(e.target.value)}
               />
-              <label className="flex items-center gap-2">
-                <input type="checkbox" checked={devAtVenue} onChange={(e) => setDevAtVenue(e.target.checked)} />
-                Pretend I&apos;m at the venue
-              </label>
               <Button size="sm" variant="outline" disabled={!devToken} onClick={() => submit(devToken.trim())}>
                 Check in with pasted token
               </Button>
@@ -206,9 +172,6 @@ function ResultCard({
       <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
         <XCircleIcon className="size-14 text-red-600" />
         <p className="font-semibold">{message}</p>
-        {result.reason === "too_far" && result.distanceM ? (
-          <p className="text-sm text-muted-foreground">You are about {formatDistance(result.distanceM)} from the venue.</p>
-        ) : null}
         {problem ? <p className="text-sm text-muted-foreground">{problem}</p> : null}
         <div className="mt-2 flex w-full max-w-xs flex-col gap-2">
           <Button onClick={onAgain}>Scan again</Button>
