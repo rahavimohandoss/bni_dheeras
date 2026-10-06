@@ -29,6 +29,13 @@
       "when": 1791281200357,
       "tag": "0003_remove_geofence",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791281657806,
+      "tag": "0004_drop_geofence_columns",
+      "breakpoints": true
     }
   ]
 }
