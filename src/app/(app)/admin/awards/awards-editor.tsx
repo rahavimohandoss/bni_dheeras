@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { deleteAwards, saveAwards, unpublishAwards } from "@/actions/awards";
+import { clearAwards, saveAwards, unpublishAwards } from "@/actions/awards";
 import { ConfirmButton } from "@/components/confirm-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -161,15 +161,17 @@ export function AwardsEditor({
         )}
         {initial.length ? (
           <ConfirmButton
-            label="Delete"
-            title="Delete this week's recognitions?"
+            label="Clear all"
+            title="Clear this meeting's recognitions?"
             description={
-              published
-                ? "They disappear from the Recognitions page and the leaderboard. Winners keep the notification they already got."
-                : "The saved draft is removed."
+              <>
+                All saved winners for this meeting are removed
+                {published ? ", and they disappear from the Recognitions page and the leaderboard" : ""}. The meeting itself
+                stays, so you can pick winners again.
+              </>
             }
-            success="Recognitions deleted."
-            action={() => deleteAwards(meetingId)}
+            success="Cleared. The meeting is still here."
+            action={() => clearAwards(meetingId)}
             variant="outline"
             size="default"
           />

@@ -3,6 +3,7 @@ import { CakeIcon, CalendarIcon, ClockIcon, MapPinIcon, ScanLineIcon, TrophyIcon
 import Link from "next/link";
 import { CelebrationRow } from "@/components/celebration-row";
 import { DeviceCard } from "@/components/device-card";
+import { InstallAppCard } from "@/components/install-app-card";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PageContainer } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -209,6 +210,8 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
             </CardContent>
           </Card>
         ) : null}
+
+        <InstallAppCard />
       </div>
     </PageContainer>
   );

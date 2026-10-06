@@ -57,7 +57,7 @@ export function DeleteMeetingButton({
     <AlertDialog open={open} onOpenChange={setOpen}>
       <AlertDialogTrigger asChild>
         <Button variant={variant} size={size}>
-          Delete
+          Delete meeting
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
@@ -66,9 +66,10 @@ export function DeleteMeetingButton({
           <AlertDialogDescription>
             {goes.length ? (
               <>
-                This also deletes {goes.join(" and ")}.
-                {history ? " The meeting disappears from PALMS, absence counts and reports." : ""} It can&apos;t be undone; the
-                audit log keeps a copy.
+                This removes the meeting itself and {goes.join(" and ")}.
+                {history ? " It disappears from PALMS, absence counts and reports." : ""} It can&apos;t be undone; the audit
+                log keeps a copy. To keep the meeting and only clear what was saved, use Clear in Attendance &amp; PALMS or
+                Clear all in Weekly recognitions.
               </>
             ) : (
               "Nothing was recorded for it, so it's simply removed from the schedule."

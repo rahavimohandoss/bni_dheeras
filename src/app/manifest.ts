@@ -11,11 +11,11 @@ export default function manifest(): MetadataRoute.Manifest {
     orientation: "portrait",
     background_color: "#ffffff",
     theme_color: "#cf2030",
-    // The chapter logo on white (public/icons, made from the logo file).
+    // The chapter's app icon (docs/brand/bni-dheeras-app-icon.png via scripts/make-icons.py).
     icons: [
-      { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
-      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
-      { src: "/icons/maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
+      { src: "/icons/app-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/icons/app-512.png", sizes: "512x512", type: "image/png" },
+      { src: "/icons/app-maskable-512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
     ],
   };
 }

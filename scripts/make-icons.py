@@ -1,9 +1,13 @@
 """
-Builds the app logo and icons from the chapter logo (docs/brand/bni-dheeras-logo.png).
-Run from the app folder after replacing that file. Needs Python 3 with Pillow:
+Builds the app logo and icons. Run from the app folder after replacing either
+source file. Needs Python 3 with Pillow:
 
     python -m pip install pillow
     python scripts/make-icons.py
+
+- docs/brand/bni-dheeras-logo.png (transparent): the in-app logo and the browser-tab icons.
+- docs/brand/bni-dheeras-app-icon.png (square, logo on white): the installed app's icon
+  on the phone's home screen, used as given.
 """
 
 from PIL import Image
@@ -42,10 +46,15 @@ fit(logo, 640, 640).quantize(colors=128, method=Image.Quantize.FASTOCTREE, dithe
 # Browser tab.
 square(mark, 256, 1.0, CLEAR).save("src/app/favicon.ico", sizes=[(16, 16), (32, 32), (48, 48)])
 square(mark, 192, 0.94, CLEAR).save("src/app/icon.png", optimize=True)
-# Home screen / installed app: full logo on white (iOS turns transparency black).
-square(logo, 180, 0.80, WHITE).convert("RGB").save("src/app/apple-icon.png", optimize=True)
-square(logo, 192, 0.82, WHITE).convert("RGB").save("public/icons/icon-192.png", optimize=True)
-square(logo, 512, 0.82, WHITE).convert("RGB").save("public/icons/icon-512.png", optimize=True)
-# Maskable: Android crops to circles and other shapes, so keep the logo in the central safe zone.
-square(logo, 512, 0.62, WHITE).convert("RGB").save("public/icons/maskable-512.png", optimize=True)
+# Home screen / installed app: the chapter's square app icon as given (white, so iOS shows no black).
+# The file names change with the artwork, so phones that installed the app fetch the new icon.
+app = Image.open("docs/brand/bni-dheeras-app-icon.png").convert("RGB")
+app.resize((180, 180), Image.LANCZOS).save("src/app/apple-icon.png", optimize=True)
+app.resize((192, 192), Image.LANCZOS).save("public/icons/app-192.png", optimize=True)
+app.resize((512, 512), Image.LANCZOS).save("public/icons/app-512.png", optimize=True)
+# Maskable: Android crops to circles and other shapes, so shrink the artwork into the central safe zone.
+maskable = Image.new("RGB", (512, 512), (255, 255, 255))
+inner = app.resize((450, 450), Image.LANCZOS)
+maskable.paste(inner, ((512 - 450) // 2, (512 - 450) // 2))
+maskable.save("public/icons/app-maskable-512.png", optimize=True)
 print("Icons written.")

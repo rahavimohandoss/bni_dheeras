@@ -77,8 +77,11 @@ export async function saveAwards(
   });
 }
 
-/** Deletes a meeting's recognitions, draft or published. Winners keep any notification they already got. */
-export async function deleteAwards(meetingId: string): Promise<ActionResult> {
+/**
+ * Clears a meeting's saved recognitions, draft or published. Only the winners
+ * go: the meeting stays and can be picked again. Winners keep any notification.
+ */
+export async function clearAwards(meetingId: string): Promise<ActionResult> {
   return runAction(async () => {
     const me = await assertCap("awards.manage");
     const id = z.uuid().parse(meetingId);
@@ -86,8 +89,8 @@ export async function deleteAwards(meetingId: string): Promise<ActionResult> {
       .delete(award)
       .where(eq(award.meetingId, id))
       .returning({ awardTypeId: award.awardTypeId, memberId: award.memberId, published: award.published });
-    if (removed.length === 0) throw new UserError("There are no recognitions to delete for this meeting.");
-    await audit({ actorId: me.id, action: "awards.delete", entity: "meeting", entityId: id, before: removed });
+    if (removed.length === 0) throw new UserError("Nothing is saved for this meeting yet.");
+    await audit({ actorId: me.id, action: "awards.clear", entity: "meeting", entityId: id, before: removed });
     refresh();
     return null;
   });

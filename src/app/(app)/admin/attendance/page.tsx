@@ -2,7 +2,8 @@ import { count, desc, eq, lte, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { DeleteMeetingButton } from "@/components/delete-meeting-button";
+import { clearMeetingAttendance } from "@/actions/meetings";
+import { ConfirmButton } from "@/components/confirm-button";
 import { EmptyState, PageContainer, PageHeader } from "@/components/page-header";
 import { Pagination } from "@/components/pagination";
 import { Badge } from "@/components/ui/badge";
@@ -38,9 +39,9 @@ export default async function AttendanceAdminPage({ searchParams }: PageProps<"/
     .limit(PAGE_SIZE)
     .offset(offset);
   const counts = await recordCounts(rows.map((r) => r.meeting.id));
-  // Meetings with attendance are PALMS history: only the President or an admin can delete those.
-  const canDelete = (status: string, records: number) =>
-    me.fullAccess || (me.caps.has("meetings.manage") && records === 0 && status !== "finalized");
+  // Clearing attendance (the meeting stays) is PALMS history: President or admin only.
+  const canClear = (status: string, records: number) => me.fullAccess && (records > 0 || status === "finalized");
+  const canEditMeeting = me.caps.has("meetings.manage");
 
   return (
     <PageContainer wide>
@@ -66,7 +67,14 @@ export default async function AttendanceAdminPage({ searchParams }: PageProps<"/
               {rows.map((r) => (
                 <TableRow key={r.meeting.id}>
                   <TableCell>
-                    <div className="font-medium">{formatDate(r.meeting.startsAt)}</div>
+                    {canEditMeeting ? (
+                      // The meeting's own page has Cancel and Delete (removes the whole meeting).
+                      <Link href={`/admin/meetings/${r.meeting.id}`} className="font-medium hover:underline">
+                        {formatDate(r.meeting.startsAt)}
+                      </Link>
+                    ) : (
+                      <div className="font-medium">{formatDate(r.meeting.startsAt)}</div>
+                    )}
                     <div className="text-xs text-muted-foreground">{r.meeting.title}</div>
                   </TableCell>
                   <TableCell>
@@ -94,14 +102,15 @@ export default async function AttendanceAdminPage({ searchParams }: PageProps<"/
                         Board
                       </Link>
                     ) : null}
-                    {canDelete(r.meeting.status, counts.get(r.meeting.id)!.records) ? (
+                    {canClear(r.meeting.status, counts.get(r.meeting.id)!.records) ? (
                       <span className="ml-1">
-                        <DeleteMeetingButton
-                          meetingId={r.meeting.id}
-                          when={formatDate(r.meeting.startsAt)}
-                          {...counts.get(r.meeting.id)!}
-                          finalized={r.meeting.status === "finalized"}
-                          size="sm"
+                        <ConfirmButton
+                          label="Clear"
+                          title={`Clear the attendance for ${formatDate(r.meeting.startsAt)}?`}
+                          description={clearDescription(counts.get(r.meeting.id)!.records, r.meeting.status === "finalized")}
+                          success="Attendance cleared. The meeting is still on the schedule."
+                          action={clearMeetingAttendance.bind(null, r.meeting.id)}
+                          requireReason="Reason (e.g. test check-ins)"
                         />
                       </span>
                     ) : null}
@@ -114,5 +123,14 @@ export default async function AttendanceAdminPage({ searchParams }: PageProps<"/
       )}
       <Pagination page={page} pageCount={pageCount} total={total} pageSize={PAGE_SIZE} href={(p) => pageHref("/admin/attendance", {}, p)} />
     </PageContainer>
+  );
+}
+
+function clearDescription(records: number, finalized: boolean) {
+  const what = records === 1 ? "1 attendance record" : `${records} attendance records`;
+  return (
+    `This removes ${what}, the check-in log, follow-ups, the visitor count and the headcount` +
+    `${finalized ? ", and opens the meeting again" : ""}. The meeting stays on the schedule, so attendance can be taken again. ` +
+    "Recognitions aren't touched. The audit log keeps a copy."
   );
 }

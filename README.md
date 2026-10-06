@@ -130,7 +130,7 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
 | `src/app/kiosk/` | Venue screen (rotating QR, welcome wall) |
 | `src/app/(app)/lvh/` | LVH desk and live board |
 | `src/db/schema.ts` | All tables; migrations are in `drizzle/` |
-| `docs/brand/` | The chapter logo. After replacing it, run `python scripts/make-icons.py` (needs Pillow) to rebuild the in-app logo, favicon and app icons. |
+| `docs/brand/` | `bni-dheeras-logo.png` (in-app logo and browser-tab icon) and `bni-dheeras-app-icon.png` (the installed app's home-screen icon). After replacing either, run `python scripts/make-icons.py` (needs Pillow). |
 
 ## Known limits
 

@@ -14,6 +14,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -35,13 +36,17 @@ export function ConfirmButton({
   icon,
   className,
   ariaLabel,
+  requireReason,
 }: {
   label: string;
   title: string;
   description?: React.ReactNode;
   confirmLabel?: string;
   success?: string;
-  action: () => Promise<Result>;
+  /** Gets the typed reason when `requireReason` is set. */
+  action: (reason?: string) => Promise<Result>;
+  /** Asks for a reason first (this is the field's placeholder); confirm stays off until one is typed. */
+  requireReason?: string;
   variant?: "ghost" | "outline" | "destructive" | "default";
   size?: "sm" | "default";
   destructive?: boolean;
@@ -52,6 +57,7 @@ export function ConfirmButton({
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
   const [pending, start] = useTransition();
   return (
     <AlertDialog open={open} onOpenChange={setOpen}>
@@ -66,14 +72,15 @@ export function ConfirmButton({
           <AlertDialogTitle>{title}</AlertDialogTitle>
           {description ? <AlertDialogDescription>{description}</AlertDialogDescription> : null}
         </AlertDialogHeader>
+        {requireReason ? <Input placeholder={requireReason} value={reason} onChange={(e) => setReason(e.target.value)} /> : null}
         <AlertDialogFooter>
           <AlertDialogCancel disabled={pending}>{destructive ? "Keep it" : "Cancel"}</AlertDialogCancel>
           <Button
             variant={destructive ? "destructive" : "default"}
-            disabled={pending}
+            disabled={pending || (!!requireReason && reason.trim().length < 3)}
             onClick={() =>
               start(async () => {
-                const res = await action();
+                const res = await (requireReason ? action(reason) : action());
                 if (!res.ok) return void toast.error(res.error);
                 setOpen(false);
                 if (success) toast.success(success);

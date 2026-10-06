@@ -4,7 +4,18 @@ import { and, eq, inArray, ne } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
-import { attendance, award, calendarEvent, MEETING_KINDS, MEETING_MODES, meeting, venue } from "@/db/schema";
+import {
+  absenceFollowup,
+  attendance,
+  award,
+  calendarEvent,
+  checkinAttempt,
+  MEETING_KINDS,
+  MEETING_MODES,
+  meeting,
+  substitute,
+  venue,
+} from "@/db/schema";
 import { type ActionResult, runAction, UserError } from "@/lib/action";
 import { newMeetingSecret } from "@/lib/attendance/qr-token";
 import { audit } from "@/lib/audit";
@@ -185,6 +196,53 @@ export async function restoreMeeting(id: string): Promise<ActionResult> {
  * Removes a meeting created by mistake. Meetings with attendance or
  * recognitions are history, so they can only be cancelled.
  */
+/**
+ * Clears what was recorded at a meeting but keeps the meeting, so it can be
+ * picked and used again: attendance, the check-in log, absence follow-ups,
+ * substitute arrivals, the visitor count and the headcount. A finalized
+ * meeting opens again. Recognitions, leave and substitute registrations stay.
+ * This is PALMS history, so only the President or an admin, with a reason.
+ */
+export async function clearMeetingAttendance(id: string, reason?: string): Promise<ActionResult> {
+  return runAction(async () => {
+    const me = await assertCap("meetings.manage");
+    if (!me.fullAccess) throw new UserError("Only the President or an admin can clear a meeting's attendance.");
+    const why = z.string().trim().min(3, "Give a reason for clearing the attendance.").max(300).parse(reason ?? "");
+    const [m] = await db.select().from(meeting).where(eq(meeting.id, z.uuid().parse(id)));
+    if (!m) throw new UserError("Meeting not found.");
+    await db.transaction(async (tx) => {
+      const removed = await tx
+        .delete(attendance)
+        .where(eq(attendance.meetingId, m.id))
+        .returning({ memberId: attendance.memberId, status: attendance.status, method: attendance.method, checkedInAt: attendance.checkedInAt });
+      await tx.delete(checkinAttempt).where(eq(checkinAttempt.meetingId, m.id));
+      await tx.delete(absenceFollowup).where(eq(absenceFollowup.meetingId, m.id));
+      await tx.update(substitute).set({ arrivedAt: null, confirmedById: null }).where(eq(substitute.meetingId, m.id));
+      await tx
+        .update(meeting)
+        .set({
+          visitorCount: null,
+          headcount: null,
+          ...(m.status === "finalized" ? { status: "scheduled" as const, finalizedAt: null, finalizedById: null } : {}),
+        })
+        .where(eq(meeting.id, m.id));
+      await audit(
+        {
+          actorId: me.id,
+          action: "meeting.clear_attendance",
+          entity: "meeting",
+          entityId: m.id,
+          before: { status: m.status, visitors: m.visitorCount, headcount: m.headcount, attendance: removed },
+          reason: why,
+        },
+        tx,
+      );
+    });
+    refresh();
+    return null;
+  });
+}
+
 /**
  * Deletes a meeting and everything recorded for it: attendance, check-in
  * attempts, leave, substitutes, follow-ups and recognitions. A meeting with

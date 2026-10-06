@@ -4,6 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { NavIcon } from "@/components/nav-icon";
 import { type NavItem, PRIMARY_NAV, SECONDARY_NAV, STAFF_NAV, visible } from "@/components/nav-items";
+// Loaded on every page so the browser's install offer is caught wherever it fires (Home shows the button).
+import "@/lib/install-app";
 import { cn } from "@/lib/utils";
 
 function isActive(pathname: string, href: string) {
