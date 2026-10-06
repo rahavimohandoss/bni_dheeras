@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, gte, lte, ne } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
@@ -9,6 +9,7 @@ import { type ActionResult, runAction, UserError } from "@/lib/action";
 import { audit } from "@/lib/audit";
 import { isRole, type Role, roleConflict, ROLES } from "@/lib/permissions";
 import { assertCap } from "@/lib/session";
+import { toIstDateInput } from "@/lib/time";
 
 const termSchema = z
   .object({
@@ -18,10 +19,27 @@ const termSchema = z
   })
   .refine((t) => t.endsOn > t.startsOn, { message: "The term must end after it starts." });
 
+/** Terms mustn't overlap: on any day exactly one term (and so one President) applies. */
+async function assertNoOverlap(data: { startsOn: string; endsOn: string }, exceptId?: string) {
+  const [clash] = await db
+    .select({ name: term.name })
+    .from(term)
+    .where(
+      and(
+        lte(term.startsOn, data.endsOn),
+        gte(term.endsOn, data.startsOn),
+        exceptId ? ne(term.id, exceptId) : undefined,
+      ),
+    )
+    .limit(1);
+  if (clash) throw new UserError(`These dates overlap with the term "${clash.name}".`);
+}
+
 export async function createTerm(input: z.input<typeof termSchema>, copyFromTermId?: string): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const me = await assertCap("roles.manage");
     const data = termSchema.parse(input);
+    await assertNoOverlap(data);
     const [row] = await db.insert(term).values(data).returning({ id: term.id });
     if (copyFromTermId) {
       const previous = await db.select().from(roleAssignment).where(eq(roleAssignment.termId, copyFromTermId));
@@ -35,6 +53,38 @@ export async function createTerm(input: z.input<typeof termSchema>, copyFromTerm
     await audit({ actorId: me.id, action: "term.create", entity: "term", entityId: row.id, after: data });
     refresh();
     return { id: row.id };
+  });
+}
+
+export async function updateTerm(id: string, input: z.input<typeof termSchema>): Promise<ActionResult> {
+  return runAction(async () => {
+    const me = await assertCap("roles.manage");
+    const termId = z.uuid().parse(id);
+    const data = termSchema.parse(input);
+    const [before] = await db.select().from(term).where(eq(term.id, termId));
+    if (!before) throw new UserError("Term not found.");
+    await assertNoOverlap(data, termId);
+    await db.update(term).set(data).where(eq(term.id, termId));
+    await audit({ actorId: me.id, action: "term.update", entity: "term", entityId: termId, before, after: data });
+    refresh();
+    return null;
+  });
+}
+
+/** Deletes a term and its role list. The term covering today can't be deleted (its President would lose access). */
+export async function deleteTerm(id: string): Promise<ActionResult> {
+  return runAction(async () => {
+    const me = await assertCap("roles.manage");
+    const [row] = await db.select().from(term).where(eq(term.id, z.uuid().parse(id)));
+    if (!row) throw new UserError("Term not found.");
+    const today = toIstDateInput(new Date());
+    if (row.startsOn <= today && row.endsOn >= today) {
+      throw new UserError("This is the current term. Create and fill the next term instead of deleting this one.");
+    }
+    await db.delete(term).where(eq(term.id, row.id));
+    await audit({ actorId: me.id, action: "term.delete", entity: "term", entityId: row.id, before: row });
+    refresh();
+    return null;
   });
 }
 

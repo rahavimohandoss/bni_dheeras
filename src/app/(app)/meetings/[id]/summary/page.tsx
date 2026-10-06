@@ -7,12 +7,14 @@ import { StatusBadge } from "@/components/status-badge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { VisitorCounter } from "@/components/visitor-counter";
 import { db } from "@/db";
-import { absenceFollowup, type AttendanceStatus, member } from "@/db/schema";
+import { absenceFollowup, ATTENDANCE_STATUSES, type AttendanceStatus, member } from "@/db/schema";
 import { getBoardData } from "@/lib/attendance/board";
 import { getMeetingWithVenue } from "@/lib/attendance/queries";
 import { requireMember } from "@/lib/session";
 import { formatDate, formatDateTime, formatTime } from "@/lib/time";
+import { ReopenMeetingButton } from "./reopen-button";
 import { CopyPalmsButton, FollowupRow, PrintButton } from "./summary-client";
 
 export const metadata: Metadata = { title: "PALMS summary" };
@@ -37,7 +39,7 @@ export default async function SummaryPage({ params }: PageProps<"/meetings/[id]/
     ? (await db.select({ name: member.fullName }).from(member).where(eq(member.id, m.finalizedById)))[0]?.name
     : null;
 
-  const counts: Record<AttendanceStatus, number> = { P: 0, L: 0, A: 0, M: 0, S: 0 };
+  const counts: Record<AttendanceStatus, number> = { P: 0, A: 0, L: 0, M: 0, S: 0 };
   for (const row of data.members) if (row.status) counts[row.status]++;
   const manualCount = data.members.filter((r) => r.method === "manual").length;
   const checkedIn = counts.P + counts.L;
@@ -60,6 +62,7 @@ export default async function SummaryPage({ params }: PageProps<"/meetings/[id]/
         }
         actions={
           <div className="no-print flex flex-wrap gap-2">
+            {m.status === "finalized" && me.caps.has("meeting.finalize") ? <ReopenMeetingButton meetingId={m.id} /> : null}
             <CopyPalmsButton rows={rowsForCopy} />
             <Button asChild variant="outline">
               <a href={`/api/meetings/${m.id}/palms`}>
@@ -72,16 +75,18 @@ export default async function SummaryPage({ params }: PageProps<"/meetings/[id]/
       />
 
       <div className="mb-4 grid grid-cols-3 gap-2 sm:grid-cols-7">
-        {(["P", "L", "A", "M", "S"] as const).map((s) => (
+        {ATTENDANCE_STATUSES.map((s) => (
           <div key={s} className="rounded-xl border p-3">
             <StatusBadge status={s} />
             <div className="mt-1 text-2xl font-bold tabular-nums">{counts[s]}</div>
           </div>
         ))}
-        <div className="rounded-xl border p-3">
-          <div className="text-xs text-muted-foreground">Visitors</div>
-          <div className="mt-1 text-2xl font-bold tabular-nums">{data.visitors}</div>
-        </div>
+        <VisitorCounter
+          key={data.visitors}
+          meetingId={m.id}
+          value={data.visitors}
+          editable={me.caps.has("kiosk.run") || me.caps.has("meeting.finalize")}
+        />
         <div className="rounded-xl border p-3">
           <div className="text-xs text-muted-foreground">Headcount</div>
           <div className="mt-1 text-2xl font-bold tabular-nums">{m.headcount ?? "–"}</div>

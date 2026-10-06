@@ -4,8 +4,11 @@ import { PlusIcon, SearchIcon, UploadIcon } from "lucide-react";
 import { useMemo, useState, useTransition } from "react";
 import { toast } from "sonner";
 import { addMember, type ImportReport, importMembersCsv, setMemberStatus, updateMember } from "@/actions/members";
+import { ConfirmButton } from "@/components/confirm-button";
+import { PasswordButton } from "@/components/password-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
   DialogContent,
@@ -16,7 +19,6 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PasswordButton } from "@/components/password-button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 type Row = {
@@ -29,27 +31,50 @@ type Row = {
   status: "active" | "inactive";
   joinedOn: string | null;
   isAdmin: boolean;
+  isChapterMember: boolean;
   mustChangePassword: boolean;
 };
 
+const PAGE_SIZE = 25;
+type Filter = "active" | "inactive" | "all";
+
 export function MembersAdmin({ members, meId }: { members: Row[]; meId: string }) {
   const [query, setQuery] = useState("");
+  const [filter, setFilter] = useState<Filter>("active");
+  const [page, setPage] = useState(1);
   const [editing, setEditing] = useState<Row | "new" | null>(null);
   const [importOpen, setImportOpen] = useState(false);
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return members;
-    return members.filter((m) =>
-      [m.fullName, m.email, m.phone, m.businessName, m.category].some((v) => v?.toLowerCase().includes(q)),
+    return members.filter(
+      (m) =>
+        (filter === "all" || m.status === filter) &&
+        (!q || [m.fullName, m.email, m.phone, m.businessName, m.category].some((v) => v?.toLowerCase().includes(q))),
     );
-  }, [members, query]);
+  }, [members, query, filter]);
+  const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const current = Math.min(page, pageCount);
+  const shown = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
+  const counts: Record<Filter, number> = {
+    active: members.filter((m) => m.status === "active").length,
+    inactive: members.filter((m) => m.status === "inactive").length,
+    all: members.length,
+  };
 
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap gap-2">
         <div className="relative min-w-56 flex-1">
           <SearchIcon className="absolute top-2 left-2.5 size-4 text-muted-foreground" />
-          <Input className="pl-8" placeholder="Search members" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <Input
+            className="pl-8"
+            placeholder="Search members"
+            value={query}
+            onChange={(e) => {
+              setQuery(e.target.value);
+              setPage(1);
+            }}
+          />
         </div>
         <Button onClick={() => setEditing("new")}>
           <PlusIcon /> Add member
@@ -57,6 +82,21 @@ export function MembersAdmin({ members, meId }: { members: Row[]; meId: string }
         <Button variant="outline" onClick={() => setImportOpen(true)}>
           <UploadIcon /> Import CSV
         </Button>
+      </div>
+      <div className="flex gap-1">
+        {(["active", "inactive", "all"] as const).map((f) => (
+          <Button
+            key={f}
+            size="sm"
+            variant={filter === f ? "default" : "outline"}
+            onClick={() => {
+              setFilter(f);
+              setPage(1);
+            }}
+          >
+            {f === "active" ? "Active" : f === "inactive" ? "Inactive" : "All"} ({counts[f]})
+          </Button>
+        ))}
       </div>
       <div className="rounded-xl border">
         <Table>
@@ -70,11 +110,24 @@ export function MembersAdmin({ members, meId }: { members: Row[]; meId: string }
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filtered.map((m) => (
+            {shown.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="py-6 text-center text-sm text-muted-foreground">
+                  No members found.
+                </TableCell>
+              </TableRow>
+            ) : null}
+            {shown.map((m) => (
               <TableRow key={m.id}>
                 <TableCell>
-                  <div className="font-medium">
-                    {m.fullName} {m.isAdmin ? <Badge variant="outline">admin</Badge> : null}
+                  <div className="flex flex-wrap items-center gap-1 font-medium">
+                    {m.fullName}
+                    {m.isAdmin ? <Badge variant="outline">admin</Badge> : null}
+                    {!m.isChapterMember ? (
+                      <Badge variant="outline" title="Doesn't appear in attendance, PALMS or the member list">
+                        not a member
+                      </Badge>
+                    ) : null}
                   </div>
                   <div className="text-xs text-muted-foreground md:hidden">{m.businessName}</div>
                 </TableCell>
@@ -101,40 +154,52 @@ export function MembersAdmin({ members, meId }: { members: Row[]; meId: string }
                     Edit
                   </Button>
                   {m.status === "active" ? <PasswordButton memberId={m.id} name={m.fullName} /> : null}
-                  {m.id !== meId ? <StatusToggle id={m.id} status={m.status} /> : null}
+                  {m.id === meId ? null : m.status === "active" ? (
+                    <ConfirmButton
+                      label="Deactivate"
+                      title={`Deactivate ${m.fullName}?`}
+                      description="They're signed out everywhere, can't sign in, and are no longer expected at meetings. Their history stays, and you can reactivate them later."
+                      success={`${m.fullName} deactivated.`}
+                      action={() => setMemberStatus(m.id, "inactive")}
+                    />
+                  ) : (
+                    <ConfirmButton
+                      label="Reactivate"
+                      title={`Reactivate ${m.fullName}?`}
+                      description="They can sign in again and are expected at meetings."
+                      success={`${m.fullName} reactivated.`}
+                      action={() => setMemberStatus(m.id, "active")}
+                      destructive={false}
+                    />
+                  )}
                 </TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
       </div>
+      {pageCount > 1 ? (
+        <div className="flex items-center justify-between text-sm">
+          <Button variant="outline" size="sm" disabled={current <= 1} onClick={() => setPage(current - 1)}>
+            Previous
+          </Button>
+          <span className="text-muted-foreground tabular-nums">
+            Page {current} of {pageCount}
+          </span>
+          <Button variant="outline" size="sm" disabled={current >= pageCount} onClick={() => setPage(current + 1)}>
+            Next
+          </Button>
+        </div>
+      ) : null}
       {editing ? <MemberDialog row={editing === "new" ? null : editing} onClose={() => setEditing(null)} /> : null}
       <ImportDialog open={importOpen} onOpenChange={setImportOpen} />
     </div>
   );
 }
 
-function StatusToggle({ id, status }: { id: string; status: "active" | "inactive" }) {
-  const [pending, start] = useTransition();
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      disabled={pending}
-      onClick={() =>
-        start(async () => {
-          const res = await setMemberStatus(id, status === "active" ? "inactive" : "active");
-          if (!res.ok) toast.error(res.error);
-        })
-      }
-    >
-      {status === "active" ? "Deactivate" : "Reactivate"}
-    </Button>
-  );
-}
-
 function MemberDialog({ row, onClose }: { row: Row | null; onClose: () => void }) {
   const [pending, start] = useTransition();
+  const [isChapterMember, setIsChapterMember] = useState(row?.isChapterMember ?? true);
   function submit(formData: FormData) {
     const input = {
       fullName: String(formData.get("fullName") ?? ""),
@@ -145,7 +210,7 @@ function MemberDialog({ row, onClose }: { row: Row | null; onClose: () => void }
       joinedOn: String(formData.get("joinedOn") ?? ""),
     };
     start(async () => {
-      const res = row ? await updateMember(row.id, input) : await addMember(input);
+      const res = row ? await updateMember(row.id, input, isChapterMember) : await addMember(input, isChapterMember);
       if (!res.ok) return void toast.error(res.error);
       toast.success(row ? "Member updated." : "Member added. Tap Password next to their name to send their login on WhatsApp.");
       onClose();
@@ -168,6 +233,15 @@ function MemberDialog({ row, onClose }: { row: Row | null; onClose: () => void }
           <Field name="businessName" label="Business name" defaultValue={row?.businessName ?? ""} />
           <Field name="category" label="Category / classification" defaultValue={row?.category ?? ""} />
           <Field name="joinedOn" label="Joined on" type="date" defaultValue={row?.joinedOn ?? ""} />
+          <label className="flex items-start gap-2 text-sm">
+            <Checkbox className="mt-0.5" checked={isChapterMember} onCheckedChange={(v) => setIsChapterMember(!!v)} />
+            <span>
+              Chapter member
+              <span className="block text-xs text-muted-foreground">
+                Untick for admin-only logins: they don&apos;t appear in attendance, PALMS, the member list or celebrations.
+              </span>
+            </span>
+          </label>
           <DialogFooter>
             <Button type="submit" disabled={pending}>
               Save

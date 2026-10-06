@@ -37,7 +37,10 @@ export async function completeSetup(_prev: unknown, formData: FormData): Promise
     });
     const password = String(formData.get("password") ?? "");
     await assertNewPassword(password, String(formData.get("confirm") ?? ""));
-    const id = await createMember({ ...input, isAdmin: true }, { passwordHash: await hashPassword(password), mustChangePassword: false });
+    const id = await createMember(
+      { ...input, isAdmin: true, isChapterMember: formData.get("isChapterMember") === "on" },
+      { passwordHash: await hashPassword(password), mustChangePassword: false },
+    );
     await ensureDefaults();
     await audit({ actorId: id, action: "setup.complete", entity: "member", entityId: id });
     await auth.api.signInEmail({ body: { email: input.email, password, rememberMe: true }, headers: await headers() });

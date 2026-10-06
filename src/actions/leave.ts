@@ -32,6 +32,7 @@ const leaveSchema = z.object({
 export async function requestLeave(input: z.input<typeof leaveSchema>): Promise<ActionResult> {
   return runAction(async () => {
     const me = await assertMember();
+    if (!me.isChapterMember) throw new UserError("This is an admin account, not a chapter member.");
     const data = leaveSchema.parse(input);
     const m = await openMeetingForMember(data.meetingId);
     const status = data.kind === "informed" ? "approved" : "pending";
@@ -66,6 +67,7 @@ const subSchema = z.object({
 export async function registerSubstitute(input: z.input<typeof subSchema>): Promise<ActionResult> {
   return runAction(async () => {
     const me = await assertMember();
+    if (!me.isChapterMember) throw new UserError("This is an admin account, not a chapter member.");
     const data = subSchema.parse(input);
     const m = await openMeetingForMember(data.meetingId);
     const phone = normalizePhone(data.phone)!;

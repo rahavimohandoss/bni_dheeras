@@ -56,7 +56,7 @@ export async function getActiveMeetings(now = new Date()): Promise<MeetingWithVe
   return rows.map((r) => ({ ...r.meeting, venue: r.venue }));
 }
 
-/** Active members expected at a meeting (joined on or before its date). */
+/** Active chapter members expected at a meeting (joined on or before its date; not admin-only accounts). */
 export async function expectedMembers(meetingStartsAt: Date, conn: DBOrTx = db) {
   const day = toIstDateInput(meetingStartsAt);
   return conn
@@ -72,6 +72,7 @@ export async function expectedMembers(meetingStartsAt: Date, conn: DBOrTx = db) 
     .where(
       and(
         eq(member.status, "active"),
+        eq(member.isChapterMember, true),
         or(isNull(member.joinedOn), lte(member.joinedOn, day)),
       ),
     )

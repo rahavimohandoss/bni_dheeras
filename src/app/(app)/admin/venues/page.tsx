@@ -17,11 +17,7 @@ export default async function VenuesPage() {
   ]);
   return (
     <PageContainer>
-      <PageHeader
-        title="Venues"
-        back={{ href: "/admin", label: "Admin" }}
-        description="Put the pin on the meeting hall itself. Members must be inside the red circle (the geofence) to check in."
-      />
+      <PageHeader title="Venues" back={{ href: "/admin", label: "Admin" }} />
       <VenueEditor
         venues={venues.map((v) => ({ ...v, createdAt: v.createdAt.toISOString() }))}
         defaultGeofence={settings.defaultGeofenceM}

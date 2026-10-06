@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import type { FormField } from "@/db/schema";
 import { approximatePoint, formatDistance, haversineM } from "@/lib/attendance/geo";
+import { isToday, nextMonth } from "@/lib/celebrations";
 import { toCsv } from "@/lib/csv";
 import { normalizePhone, parseLoginId, parseLooseDate, whatsappLink } from "@/lib/format";
-import { validateAnswers } from "@/lib/forms";
+import { pageFromParam, pageHref, paginate } from "@/lib/pagination";
 import { CAPABILITIES, ROLE_KEYS, capabilitiesFor, capsCover, hasFullAccess, roleConflict } from "@/lib/permissions";
 import { istToDate, startOfIstDay, toIstDateInput, toIstTimeInput } from "@/lib/time";
 import { youtubeEmbedUrl } from "@/lib/video";
@@ -109,27 +109,6 @@ describe("location privacy", () => {
   });
 });
 
-describe("form answers", () => {
-  const fields: FormField[] = [
-    { id: "name", type: "short_text", label: "Name", required: true },
-    { id: "phone", type: "phone", label: "Phone", required: true },
-    { id: "rating", type: "rating", label: "Rating", required: false },
-    { id: "join", type: "single_choice", label: "Join?", required: false, options: ["Yes", "No"] },
-    { id: "topics", type: "multi_choice", label: "Topics", required: false, options: ["A", "B"] },
-  ];
-
-  it("accepts valid answers and drops unknown keys", () => {
-    const r = validateAnswers(fields, { name: "Ravi", phone: "98400 12345", rating: "5", join: "Yes", topics: ["A"], extra: "x" });
-    expect(r).toEqual({ data: { name: "Ravi", phone: "9840012345", rating: "5", join: "Yes", topics: ["A"] } });
-  });
-
-  it("rejects missing required answers and values outside the options", () => {
-    expect(validateAnswers(fields, { phone: "9840012345" })).toHaveProperty("error");
-    expect(validateAnswers(fields, { name: "R", phone: "9840012345", join: "Maybe" })).toHaveProperty("error");
-    expect(validateAnswers(fields, { name: "R", phone: "9840012345", rating: "9" })).toHaveProperty("error");
-  });
-});
-
 describe("CSV export", () => {
   it("quotes properly and neutralises spreadsheet formulas", () => {
     const csv = toCsv([["Name", "Note"], ["A, B", '=HYPERLINK("x")']]);
@@ -145,5 +124,36 @@ describe("video links", () => {
       "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ",
     );
     expect(youtubeEmbedUrl("https://vimeo.com/123")).toBeNull();
+  });
+});
+
+describe("pagination", () => {
+  it("reads ?page= safely and clamps to the last page", () => {
+    expect(pageFromParam(undefined)).toBe(1);
+    expect(pageFromParam("3")).toBe(3);
+    expect(pageFromParam(["2", "5"])).toBe(2);
+    expect(pageFromParam("-1")).toBe(1);
+    expect(pageFromParam("abc")).toBe(1);
+    expect(paginate(9, 45, 20)).toEqual({ page: 3, pageCount: 3, offset: 40 });
+    expect(paginate(1, 0, 20)).toEqual({ page: 1, pageCount: 1, offset: 0 });
+  });
+
+  it("keeps filters in page links and drops page=1", () => {
+    expect(pageHref("/admin/audit", { f: "role" }, 2)).toBe("/admin/audit?f=role&page=2");
+    expect(pageHref("/admin/audit", { f: undefined }, 1)).toBe("/admin/audit");
+  });
+});
+
+describe("celebrations", () => {
+  const birthday = (month: number, day: number) =>
+    ({ memberId: "m", name: "A", photoUrl: null, kind: "birthday", month, day }) as const;
+
+  it("knows today's celebrations, including 29 February in other years", () => {
+    expect(isToday(birthday(10, 6), { year: 2026, month: 10, day: 6 })).toBe(true);
+    expect(isToday(birthday(10, 7), { year: 2026, month: 10, day: 6 })).toBe(false);
+    expect(isToday(birthday(2, 29), { year: 2026, month: 2, day: 28 })).toBe(true);
+    expect(isToday(birthday(2, 29), { year: 2028, month: 2, day: 28 })).toBe(false);
+    expect(nextMonth(12)).toBe(1);
+    expect(nextMonth(10)).toBe(11);
   });
 });

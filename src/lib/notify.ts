@@ -1,5 +1,5 @@
 import "server-only";
-import { and, eq, gte, inArray, lte } from "drizzle-orm";
+import { and, eq, gte, inArray, isNotNull, lt, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { member, notification, roleAssignment, term } from "@/db/schema";
 import { appUrl } from "@/lib/app-url";
@@ -46,4 +46,11 @@ export async function membersWithRoles(roles: Role[]): Promise<string[]> {
       ),
     );
   return rows.map((r) => r.id);
+}
+
+/** Weekly clean-up: read notifications older than 90 days. */
+export async function pruneOldNotifications(): Promise<void> {
+  await db
+    .delete(notification)
+    .where(and(isNotNull(notification.readAt), lt(notification.createdAt, new Date(Date.now() - 90 * 86_400_000))));
 }

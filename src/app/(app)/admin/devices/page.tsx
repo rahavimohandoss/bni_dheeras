@@ -48,6 +48,7 @@ export default async function DevicesPage() {
                 </div>
                 <div className="rounded-md bg-muted px-3 py-1 font-mono text-xl font-bold tracking-widest">{d.approvalCode}</div>
                 <ApproveDeviceButton id={d.id} name={memberName} code={d.approvalCode} />
+                <RevokeDeviceButton id={d.id} name={memberName} pending />
               </CardContent>
             </Card>
           ))}

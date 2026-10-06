@@ -90,6 +90,8 @@ export default async function MePage() {
                 linkedin: profile?.socials.linkedin ?? "",
                 youtube: profile?.socials.youtube ?? "",
                 x: profile?.socials.x ?? "",
+                dateOfBirth: profile?.dateOfBirth ?? "",
+                anniversaryDate: profile?.anniversaryDate ?? "",
               }}
             />
           </CardContent>

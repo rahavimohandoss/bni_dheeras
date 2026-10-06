@@ -1,4 +1,4 @@
-import { asc, eq, gte } from "drizzle-orm";
+import { and, asc, eq, gte } from "drizzle-orm";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { PageContainer, PageHeader } from "@/components/page-header";
@@ -25,7 +25,7 @@ export default async function CalendarAdminPage() {
       .where(gte(calendarEvent.endsAt, daysFromNow(-7)))
       .orderBy(asc(calendarEvent.startsAt))
       .limit(100),
-    db.select({ id: member.id, name: member.fullName }).from(member).where(eq(member.status, "active")).orderBy(asc(member.fullName)),
+    db.select({ id: member.id, name: member.fullName }).from(member).where(and(eq(member.status, "active"), eq(member.isChapterMember, true))).orderBy(asc(member.fullName)),
   ]);
 
   return (

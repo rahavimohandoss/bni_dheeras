@@ -3,7 +3,7 @@ import { and, desc, eq, gte } from "drizzle-orm";
 import { db } from "@/db";
 import { absenceFollowup, attendance, meeting, member } from "@/db/schema";
 import { absenceCounts, lateCounts } from "@/lib/attendance/queries";
-import { notify, membersWithRoles } from "@/lib/notify";
+import { membersWithRoles, notify, pruneOldNotifications } from "@/lib/notify";
 import { pruneLoginAttempts } from "@/lib/passwords";
 import { getAttendanceSettings } from "@/lib/settings";
 import { formatDate } from "@/lib/time";
@@ -25,7 +25,7 @@ function authorized(req: Request): boolean {
  */
 export async function GET(req: Request) {
   if (!authorized(req)) return new Response("Unauthorized", { status: 401 });
-  await pruneLoginAttempts();
+  await Promise.all([pruneLoginAttempts(), pruneOldNotifications()]);
   const settings = await getAttendanceSettings();
   const [last] = await db
     .select()
@@ -36,12 +36,16 @@ export async function GET(req: Request) {
   const recipients = await membersWithRoles(["attendance_coordinator", "secretary_treasurer"]);
   if (!last || recipients.length === 0) return Response.json({ sent: false, reason: "nothing to report" });
 
-  const rows = await db.select().from(attendance).where(eq(attendance.meetingId, last.id));
-  const tally = { P: 0, L: 0, A: 0, M: 0, S: 0 };
+  const active = await db
+    .select({ id: member.id, name: member.fullName })
+    .from(member)
+    .where(and(eq(member.status, "active"), eq(member.isChapterMember, true)));
+  const ids = active.map((a) => a.id);
+  const isMember = new Set(ids);
+  const rows = (await db.select().from(attendance).where(eq(attendance.meetingId, last.id))).filter((r) => isMember.has(r.memberId));
+  const tally = { P: 0, A: 0, L: 0, M: 0, S: 0 };
   for (const r of rows) tally[r.status]++;
 
-  const active = await db.select({ id: member.id, name: member.fullName }).from(member).where(eq(member.status, "active"));
-  const ids = active.map((a) => a.id);
   const names = new Map(active.map((a) => [a.id, a.name]));
   const [absences, lates, followups] = await Promise.all([
     absenceCounts(ids, settings.absenceWindowMonths),
@@ -58,7 +62,7 @@ export async function GET(req: Request) {
   const pendingCalls = rows.filter((r) => r.status === "A" && !called.has(r.memberId)).map((r) => `• ${names.get(r.memberId)}`);
 
   const body = [
-    `Meeting ${formatDate(last.startsAt)}: P ${tally.P} · L ${tally.L} · A ${tally.A} · M ${tally.M} · S ${tally.S}`,
+    `Meeting ${formatDate(last.startsAt)}: P ${tally.P} · A ${tally.A} · L ${tally.L} · M ${tally.M} · S ${tally.S}`,
     "",
     `At or near the absence limit (${settings.absenceLimit} in ${settings.absenceWindowMonths} months):`,
     ...(atRisk.length ? atRisk : ["• none"]),

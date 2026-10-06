@@ -6,13 +6,13 @@ import { type ActionResult, runAction } from "@/lib/action";
 import { audit } from "@/lib/audit";
 import { setDefaultPassword } from "@/lib/passwords";
 import { assertCap } from "@/lib/session";
-import { attendanceSettingsSchema, getAttendanceSettings, writeSetting } from "@/lib/settings";
+import { attendanceSettingsSchema, editableAttendanceSchema, getAttendanceSettings, writeSetting } from "@/lib/settings";
 
 export async function saveAttendanceSettings(input: unknown): Promise<ActionResult> {
   return runAction(async () => {
     const me = await assertCap("settings.manage");
-    const data = attendanceSettingsSchema.parse(input);
     const before = await getAttendanceSettings();
+    const data = attendanceSettingsSchema.parse({ ...before, ...editableAttendanceSchema.parse(input) });
     await writeSetting("attendance", data, me.id);
     await audit({ actorId: me.id, action: "settings.attendance", entity: "setting", entityId: "attendance", before, after: data });
     refresh();

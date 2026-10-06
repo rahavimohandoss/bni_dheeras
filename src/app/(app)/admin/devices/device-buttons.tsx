@@ -51,22 +51,31 @@ export function ApproveDeviceButton({ id, name, code }: { id: string; name: stri
   );
 }
 
-export function RevokeDeviceButton({ id, name }: { id: string; name: string }) {
+/** Removes an approved phone, or rejects one waiting for approval (`pending`). */
+export function RevokeDeviceButton({ id, name, pending: isPending = false }: { id: string; name: string; pending?: boolean }) {
   const [reason, setReason] = useState("");
   const [pending, start] = useTransition();
   return (
     <AlertDialog>
       <AlertDialogTrigger asChild>
-        <Button variant="ghost" size="sm" disabled={pending}>
-          Remove
+        <Button variant={isPending ? "outline" : "ghost"} size={isPending ? "default" : "sm"} disabled={pending}>
+          {isPending ? "Reject" : "Remove"}
         </Button>
       </AlertDialogTrigger>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Remove {name}&apos;s phone?</AlertDialogTitle>
-          <AlertDialogDescription>It will stop working for check-in immediately. The member is notified.</AlertDialogDescription>
+          <AlertDialogTitle>{isPending ? "Reject" : "Remove"} {name}&apos;s phone?</AlertDialogTitle>
+          <AlertDialogDescription>
+            {isPending
+              ? "It won’t be approved for check-in. The member is notified and can register again."
+              : "It will stop working for check-in immediately. The member is notified."}
+          </AlertDialogDescription>
         </AlertDialogHeader>
-        <Input placeholder="Reason (e.g. lost phone)" value={reason} onChange={(e) => setReason(e.target.value)} />
+        <Input
+          placeholder={isPending ? "Reason (e.g. not their phone)" : "Reason (e.g. lost phone)"}
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
         <AlertDialogFooter>
           <AlertDialogCancel>Cancel</AlertDialogCancel>
           <AlertDialogAction
@@ -74,12 +83,12 @@ export function RevokeDeviceButton({ id, name }: { id: string; name: string }) {
             onClick={() =>
               start(async () => {
                 const res = await revokeDevice(id, reason);
-                if (res.ok) toast.success("Phone removed.");
+                if (res.ok) toast.success(isPending ? "Request rejected." : "Phone removed.");
                 else toast.error(res.error);
               })
             }
           >
-            Remove
+            {isPending ? "Reject" : "Remove"}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

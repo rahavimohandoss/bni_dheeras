@@ -34,7 +34,7 @@ export type MemberInput = z.output<typeof memberInputSchema>;
  * at the first sign-in. Pass `passwordHash` to reuse one hash for a batch.
  */
 export async function createMember(
-  input: MemberInput & { isAdmin?: boolean },
+  input: MemberInput & { isAdmin?: boolean; isChapterMember?: boolean },
   opts: { passwordHash?: string; mustChangePassword?: boolean } = {},
 ): Promise<string> {
   const id = crypto.randomUUID();
@@ -51,6 +51,7 @@ export async function createMember(
         category: input.category,
         joinedOn: input.joinedOn,
         isAdmin: input.isAdmin ?? false,
+        isChapterMember: input.isChapterMember ?? true,
       });
       await storePassword(id, passwordHash, opts.mustChangePassword ?? true, tx);
     });

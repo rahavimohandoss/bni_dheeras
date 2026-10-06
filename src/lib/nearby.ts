@@ -44,7 +44,7 @@ export async function membersNearby(viewerId: string, origin: LatLng): Promise<N
     })
     .from(memberLocation)
     .innerJoin(member, eq(member.id, memberLocation.memberId))
-    .where(and(eq(memberLocation.visible, true), eq(member.status, "active"), ne(member.id, viewerId)));
+    .where(and(eq(memberLocation.visible, true), eq(member.status, "active"), eq(member.isChapterMember, true), ne(member.id, viewerId)));
 
   return rows
     .map((r) => ({

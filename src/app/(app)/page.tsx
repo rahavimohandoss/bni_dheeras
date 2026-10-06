@@ -1,6 +1,7 @@
 import { and, asc, count, desc, eq, gte } from "drizzle-orm";
-import { CalendarIcon, ClockIcon, MapPinIcon, ScanLineIcon, TrophyIcon } from "lucide-react";
+import { CakeIcon, CalendarIcon, ClockIcon, MapPinIcon, ScanLineIcon, TrophyIcon } from "lucide-react";
 import Link from "next/link";
+import { CelebrationRow } from "@/components/celebration-row";
 import { DeviceCard } from "@/components/device-card";
 import { MemberAvatar } from "@/components/member-avatar";
 import { PageContainer } from "@/components/page-header";
@@ -11,7 +12,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { db } from "@/db";
 import { award, awardType, calendarEvent, device, leaveRequest, meeting, member } from "@/db/schema";
 import { absenceCounts, getCurrentOrNextMeeting, memberMeetingState } from "@/lib/attendance/queries";
-import { checkinWindow, lateCutoff } from "@/lib/attendance/rules";
+import { checkinWindow } from "@/lib/attendance/rules";
+import { type Celebration, getCelebrations, isToday, MONTH_NAMES, nextMonth, today } from "@/lib/celebrations";
 import { getMemberDevices } from "@/lib/devices";
 import { requireMember } from "@/lib/session";
 import { getAttendanceSettings } from "@/lib/settings";
@@ -37,6 +39,9 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
     .orderBy(asc(calendarEvent.startsAt))
     .limit(3);
 
+  const celebrations = me.caps.has("celebrations.view") ? await getCelebrations() : null;
+  const now0 = today();
+
   const pendingDevices = me.caps.has("devices.approve")
     ? (await db.select({ n: count() }).from(device).where(eq(device.status, "pending")))[0].n
     : 0;
@@ -46,7 +51,8 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
 
   const now = new Date();
   const windowState = next ? checkinWindow(now, next.checkinOpensAt, next.endsAt) : null;
-  const firstName = me.fullName.split(" ")[0];
+  // Admin-only accounts have names like "BNI Dheeras Admin": "Hello, BNI" reads oddly.
+  const firstName = me.isChapterMember ? me.fullName.split(" ")[0] : me.fullName;
 
   return (
     <PageContainer>
@@ -74,93 +80,98 @@ export default async function HomePage({ searchParams }: PageProps<"/">) {
           </Card>
         ) : null}
 
-        <DeviceCard memberId={me.id} devices={devices} />
+        {celebrations ? <CelebrationsCard all={celebrations} now={now0} /> : null}
 
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base text-muted-foreground">Next meeting</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {next ? (
-              <>
-                <div>
-                  <div className="text-lg font-semibold">{next.title}</div>
-                  <div className="mt-1 flex flex-col gap-1 text-sm text-muted-foreground">
-                    <span className="flex items-center gap-1.5">
-                      <CalendarIcon className="size-4" /> {formatDate(next.startsAt)}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <ClockIcon className="size-4" /> {formatTime(next.startsAt)} – {formatTime(next.endsAt)} · on time
-                      until {formatTime(lateCutoff(next.startsAt, next.graceMinutes))}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                      <MapPinIcon className="size-4" />
-                      {next.mode === "online" ? "Online meeting" : (next.venue?.name ?? "Venue to be announced")}
-                    </span>
-                  </div>
-                </div>
+        {me.isChapterMember ? <DeviceCard memberId={me.id} devices={devices} /> : null}
 
-                {state?.attendance ? (
-                  <div className="flex items-center gap-2 text-sm">
-                    <StatusBadge status={state.attendance.status} full />
-                    {state.attendance.checkedInAt ? (
-                      <span className="text-muted-foreground">at {formatTime(state.attendance.checkedInAt)}</span>
-                    ) : null}
+        {me.isChapterMember ? (
+          <Card>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base text-muted-foreground">Next meeting</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {next ? (
+                <>
+                  <div>
+                    <div className="text-lg font-semibold">{next.title}</div>
+                    <div className="mt-1 flex flex-col gap-1 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1.5">
+                        <CalendarIcon className="size-4" /> {formatDate(next.startsAt)}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <ClockIcon className="size-4" /> {formatTime(next.startsAt)} – {formatTime(next.endsAt)}
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <MapPinIcon className="size-4" />
+                        {next.mode === "online" ? "Online meeting" : (next.venue?.name ?? "Venue to be announced")}
+                      </span>
+                    </div>
                   </div>
-                ) : state?.substitute ? (
-                  <div className="flex items-center justify-between rounded-lg bg-violet-50 px-3 py-2 text-sm">
-                    <span>
-                      Substitute: <b>{state.substitute.name}</b>
-                      {state.substitute.arrivedAt ? " · arrived" : ""}
-                    </span>
-                    {now < next.startsAt ? <CancelPlanButton meetingId={next.id} /> : null}
-                  </div>
-                ) : state?.leave ? (
-                  <div className="flex items-center justify-between rounded-lg bg-sky-50 px-3 py-2 text-sm">
-                    <span>
-                      {state.leave.kind === "medical" ? "Medical leave" : "Informed absence"} ·{" "}
-                      <b>{state.leave.status}</b>
-                    </span>
-                    {now < next.startsAt ? <CancelPlanButton meetingId={next.id} /> : null}
-                  </div>
-                ) : null}
 
-                <div className="flex flex-wrap gap-2">
-                  {windowState === "open" && !state?.attendance ? (
-                    <Button asChild size="lg" className="h-12 flex-1 text-base">
-                      <Link href="/scan">
-                        <ScanLineIcon /> Scan to check in
-                      </Link>
-                    </Button>
-                  ) : windowState === "not_open_yet" ? (
-                    <p className="flex-1 text-sm text-muted-foreground">
-                      Check-in opens at {formatDateTime(next.checkinOpensAt)}.
-                    </p>
+                  {state?.attendance ? (
+                    <div className="flex items-center gap-2 text-sm">
+                      <StatusBadge status={state.attendance.status} full />
+                      {state.attendance.checkedInAt ? (
+                        <span className="text-muted-foreground">at {formatTime(state.attendance.checkedInAt)}</span>
+                      ) : null}
+                    </div>
+                  ) : state?.substitute ? (
+                    <div className="flex items-center justify-between rounded-lg bg-violet-50 px-3 py-2 text-sm">
+                      <span>
+                        Substitute: <b>{state.substitute.name}</b>
+                        {state.substitute.arrivedAt ? " · arrived" : ""}
+                      </span>
+                      {now < next.startsAt ? <CancelPlanButton meetingId={next.id} /> : null}
+                    </div>
+                  ) : state?.leave ? (
+                    <div className="flex items-center justify-between rounded-lg bg-sky-50 px-3 py-2 text-sm">
+                      <span>
+                        {state.leave.kind === "medical" ? "Medical leave" : "Informed absence"} ·{" "}
+                        <b>{state.leave.status}</b>
+                      </span>
+                      {now < next.startsAt ? <CancelPlanButton meetingId={next.id} /> : null}
+                    </div>
                   ) : null}
-                  {now < next.startsAt && !state?.attendance ? <PlanDialog meetingId={next.id} /> : null}
-                </div>
-              </>
-            ) : (
-              <p className="text-sm text-muted-foreground">No meeting scheduled yet.</p>
-            )}
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardContent className="flex items-center justify-between py-4">
-            <div>
-              <div className="text-sm text-muted-foreground">Absences (last {settings.absenceWindowMonths} months)</div>
-              <div className="text-2xl font-bold">
-                {absences} <span className="text-base font-normal text-muted-foreground">of {settings.absenceLimit}</span>
+                  <div className="flex flex-wrap gap-2">
+                    {windowState === "open" && !state?.attendance ? (
+                      <Button asChild size="lg" className="h-12 flex-1 text-base">
+                        <Link href="/scan">
+                          <ScanLineIcon /> Scan to check in
+                        </Link>
+                      </Button>
+                    ) : windowState === "not_open_yet" ? (
+                      <p className="flex-1 text-sm text-muted-foreground">
+                        Check-in opens at {formatDateTime(next.checkinOpensAt)}.
+                      </p>
+                    ) : null}
+                    {now < next.startsAt && !state?.attendance ? <PlanDialog meetingId={next.id} /> : null}
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-muted-foreground">No meeting scheduled yet.</p>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
+
+        {me.isChapterMember ? (
+          <Card>
+            <CardContent className="flex items-center justify-between py-4">
+              <div>
+                <div className="text-sm text-muted-foreground">Absences (last {settings.absenceWindowMonths} months)</div>
+                <div className="text-2xl font-bold">
+                  {absences} <span className="text-base font-normal text-muted-foreground">of {settings.absenceLimit}</span>
+                </div>
               </div>
-            </div>
-            {absences >= settings.absenceLimit - 1 ? (
-              <Badge variant="destructive">Send a substitute if you can&apos;t attend</Badge>
-            ) : (
-              <Badge variant="secondary">Good standing</Badge>
-            )}
-          </CardContent>
-        </Card>
+              {absences >= settings.absenceLimit - 1 ? (
+                <Badge variant="destructive">Send a substitute if you can&apos;t attend</Badge>
+              ) : (
+                <Badge variant="secondary">Good standing</Badge>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
 
         {winners ? (
           <Card>
@@ -220,4 +231,45 @@ async function latestWinners() {
     .where(and(eq(award.meetingId, latest.meetingId), eq(award.published, true)))
     .orderBy(asc(awardType.sortOrder));
   return { date: latest.date, rows };
+}
+
+function CelebrationsCard({ all, now }: { all: Celebration[]; now: ReturnType<typeof today> }) {
+  const coming = nextMonth(now.month);
+  const thisMonth = all.filter((c) => c.month === now.month);
+  const nextOnes = all.filter((c) => c.month === coming);
+  return (
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between pb-2">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <CakeIcon className="size-4 text-primary" /> Celebrations
+        </CardTitle>
+        <Link href="/celebrations" className="text-sm text-primary underline">
+          See all
+        </Link>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div>
+          <div className="mb-1 text-xs font-medium text-muted-foreground uppercase">This month · {MONTH_NAMES[now.month - 1]}</div>
+          {thisMonth.length ? (
+            thisMonth.map((c) => <CelebrationRow key={`${c.memberId}-${c.kind}`} c={c} today={isToday(c, now)} />)
+          ) : (
+            <p className="text-sm text-muted-foreground">No birthdays or anniversaries this month.</p>
+          )}
+        </div>
+        <div>
+          <div className="mb-1 text-xs font-medium text-muted-foreground uppercase">Coming up · {MONTH_NAMES[coming - 1]}</div>
+          {nextOnes.length ? (
+            nextOnes.slice(0, 5).map((c) => <CelebrationRow key={`${c.memberId}-${c.kind}`} c={c} today={false} />)
+          ) : (
+            <p className="text-sm text-muted-foreground">Nothing yet.</p>
+          )}
+          {nextOnes.length > 5 ? (
+            <Link href="/celebrations" className="mt-1 block text-sm text-primary underline">
+              +{nextOnes.length - 5} more
+            </Link>
+          ) : null}
+        </div>
+      </CardContent>
+    </Card>
+  );
 }

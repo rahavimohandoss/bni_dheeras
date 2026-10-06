@@ -33,6 +33,7 @@ export type DeviceRegistration = { status: "pending" | "approved"; approvalCode:
 export async function registerDevice(input: z.input<typeof registerSchema>): Promise<ActionResult<DeviceRegistration>> {
   return runAction(async () => {
     const me = await assertMember();
+    if (!me.isChapterMember) throw new UserError("This is an admin account, not a chapter member: it doesn't check in.");
     const data = registerSchema.parse(input);
     const jwk = parsePublicJwk(data.jwk);
     if (!jwk) throw new UserError("This phone's key is not valid. Reload the app and try again.");
@@ -150,15 +151,17 @@ export async function revokeDevice(deviceId: string, reason: string): Promise<Ac
   return runAction(async () => {
     const me = await assertCap("devices.approve");
     const why = z.string().trim().min(3, "Give a reason").max(200).parse(reason);
+    const [before] = await db.select({ status: device.status }).from(device).where(eq(device.id, deviceId));
+    if (!before) throw new UserError("Device not found.");
     const [d] = await db
       .update(device)
       .set({ status: "revoked", revokedAt: new Date(), revokedById: me.id })
       .where(eq(device.id, deviceId))
       .returning();
-    if (!d) throw new UserError("Device not found.");
-    await audit({ actorId: me.id, action: "device.revoke", entity: "device", entityId: d.id, reason: why });
+    const rejected = before.status === "pending";
+    await audit({ actorId: me.id, action: rejected ? "device.reject" : "device.revoke", entity: "device", entityId: d.id, reason: why });
     await notify([d.memberId], {
-      title: "A phone was removed from your account",
+      title: rejected ? "Your phone wasn't approved for check-in" : "A phone was removed from your account",
       body: `${d.label}: ${why}`,
       link: "/me",
     });

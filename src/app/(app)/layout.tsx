@@ -38,7 +38,7 @@ export default async function AppLayout({ children }: LayoutProps<"/">) {
           <UserMenu name={me.fullName} email={me.email} photoUrl={publicUrl(me.photoKey)} />
         </div>
       </header>
-      <main className="pb-safe-nav flex-1 md:pb-10">{children}</main>
+      <main className="pb-safe-nav flex-1 lg:pb-10">{children}</main>
       <BottomNav />
     </div>
   );

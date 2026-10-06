@@ -34,7 +34,8 @@ export const CAPABILITIES = [
   "calendar.manage.education_slot",
   "calendar.manage.event",
   "calendar.manage.training",
-  "forms.manage",
+  "feedback.manage",
+  "celebrations.view",
   "members.manage",
   "members.reset_password",
   "roles.manage",
@@ -44,13 +45,15 @@ export const CAPABILITIES = [
 
 export type Capability = (typeof CAPABILITIES)[number];
 
+/** President (full access), VP and Secretary / Treasurer. */
 const HEAD_TABLE: Capability[] = [
   "kiosk.run",
   "palms.view",
   "meetings.manage",
   "awards.manage",
   "calendar.manage",
-  "forms.manage",
+  "feedback.manage",
+  "celebrations.view",
   "members.reset_password",
 ];
 

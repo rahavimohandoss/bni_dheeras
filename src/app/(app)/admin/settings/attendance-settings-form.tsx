@@ -7,41 +7,29 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { AttendanceSettings } from "@/lib/settings";
+import type { EditableAttendanceSettings } from "@/lib/settings";
 
-type Key = keyof AttendanceSettings;
+type Key = keyof EditableAttendanceSettings;
 
-const FIELDS: { key: Key; label: string; hint: string; optional?: boolean }[] = [
-  {
-    key: "defaultGraceMinutes",
-    label: "Default grace minutes for new meetings",
-    hint: "Empty = late from the exact start time. Each meeting can override it.",
-    optional: true,
-  },
-  { key: "defaultGeofenceM", label: "Default geofence for new venues (m)", hint: "Members must be within this distance of the venue pin." },
-  {
-    key: "gpsAccuracyAllowanceM",
-    label: "GPS accuracy allowance (m)",
-    hint: "Indoor GPS drifts. Up to this many metres of the phone's reported inaccuracy is forgiven. Set 0 for strict.",
-  },
-  { key: "maxGpsAccuracyM", label: "Reject GPS worse than (m)", hint: "Very rough fixes (Precise Location off) are refused." },
+const FIELDS: { key: Key; label: string; hint: string }[] = [
   { key: "checkinOpensBeforeMin", label: "Check-in opens (minutes before start)", hint: "Default for new meetings." },
   { key: "absenceLimit", label: "Absence limit", hint: "BNI policy: 3 absences in 6 months." },
   { key: "absenceWindowMonths", label: "Absence window (months)", hint: "Rolling window for the absence counter." },
-  { key: "lateFlagCount", label: "Lateness flag: number of lates", hint: "Coaching flag to the Attendance Coordinator." },
-  { key: "lateFlagWeeks", label: "Lateness flag: within weeks", hint: "" },
+  {
+    key: "lateFlagCount",
+    label: "Lateness flag: number of lates",
+    hint: "Coaching flag to the Attendance Coordinator when a member is late this many times in {weeks} weeks.",
+  },
 ];
 
-export function AttendanceSettingsForm({ initial }: { initial: AttendanceSettings }) {
+export function AttendanceSettingsForm({ initial, lateFlagWeeks }: { initial: EditableAttendanceSettings; lateFlagWeeks: number }) {
   const [values, setValues] = useState<Record<Key, string>>(
-    Object.fromEntries(Object.entries(initial).map(([k, v]) => [k, v === null ? "" : String(v)])) as Record<Key, string>,
+    Object.fromEntries(FIELDS.map((f) => [f.key, String(initial[f.key])])) as Record<Key, string>,
   );
   const [pending, start] = useTransition();
 
   function save() {
-    const payload = Object.fromEntries(
-      FIELDS.map((f) => [f.key, values[f.key] === "" && f.optional ? null : Number(values[f.key])]),
-    );
+    const payload = Object.fromEntries(FIELDS.map((f) => [f.key, Number(values[f.key])]));
     start(async () => {
       const res = await saveAttendanceSettings(payload);
       if (res.ok) toast.success("Settings saved.");
@@ -58,11 +46,10 @@ export function AttendanceSettingsForm({ initial }: { initial: AttendanceSetting
             <Input
               id={f.key}
               inputMode="numeric"
-              placeholder={f.optional ? "Empty = none" : undefined}
               value={values[f.key]}
               onChange={(e) => setValues((s) => ({ ...s, [f.key]: e.target.value.replace(/\D/g, "") }))}
             />
-            {f.hint ? <p className="text-xs text-muted-foreground">{f.hint}</p> : null}
+            {f.hint ? <p className="text-xs text-muted-foreground">{f.hint.replace("{weeks}", String(lateFlagWeeks))}</p> : null}
           </div>
         ))}
         <div className="sm:col-span-2">

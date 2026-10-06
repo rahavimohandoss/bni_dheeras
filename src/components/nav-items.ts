@@ -16,7 +16,7 @@ export const SECONDARY_NAV: NavItem[] = [
   { href: "/members", label: "Members", icon: "users" },
   { href: "/awards", label: "Recognitions", icon: "trophy" },
   { href: "/dance-card", label: "My dance card", icon: "card" },
-  { href: "/forms", label: "Forms", icon: "forms" },
+  { href: "/feedback", label: "Feedback", icon: "feedback" },
   { href: "/me", label: "My profile", icon: "user" },
   { href: "/notifications", label: "Notifications", icon: "bell" },
 ];
@@ -35,7 +35,7 @@ export const STAFF_NAV: NavItem[] = [
     "calendar.manage.education_slot",
     "calendar.manage.event",
     "calendar.manage.training",
-    "forms.manage",
+    "feedback.manage",
     "settings.manage",
     "audit.view",
     "palms.view",

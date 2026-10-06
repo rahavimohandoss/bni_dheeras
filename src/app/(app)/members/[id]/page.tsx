@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: PageProps<"/members/[id]">): 
 export default async function MemberPage({ params }: PageProps<"/members/[id]">) {
   const me = await requireMember();
   const { id } = await params;
-  const [m] = await db.select().from(member).where(and(eq(member.id, id), eq(member.status, "active")));
+  const [m] = await db.select().from(member).where(and(eq(member.id, id), eq(member.status, "active"), eq(member.isChapterMember, true)));
   if (!m) notFound();
   const [[profile], [loc], [card], [{ wins }]] = await Promise.all([
     db.select().from(memberProfile).where(eq(memberProfile.memberId, id)),

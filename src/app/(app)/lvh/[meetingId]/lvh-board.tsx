@@ -30,6 +30,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { VisitorCounter } from "@/components/visitor-counter";
 import { formatDistance } from "@/lib/attendance/geo";
 import { REJECTION_MESSAGES } from "@/lib/attendance/rules";
 import type { BoardData, BoardMember } from "@/lib/attendance/board";
@@ -136,8 +137,7 @@ export function LvhBoard({
           </Link>
           <h1 className="text-2xl font-bold">{feed.meeting.title}</h1>
           <p className="text-sm text-muted-foreground">
-            Starts {formatTime(new Date(feed.meeting.startsAt))} · on time until{" "}
-            {formatTime(new Date(new Date(feed.meeting.startsAt).getTime() + (feed.meeting.graceMinutes ?? 0) * 60_000))}
+            Starts {formatTime(new Date(feed.meeting.startsAt))} · Late after that
             {finalized ? " · finalized" : ""}
             {stale ? " · reconnecting…" : ""}
           </p>
@@ -164,7 +164,7 @@ export function LvhBoard({
         <Stat label="Not yet" value={notYet.length} />
         <Stat label="Substitutes" value={feed.members.filter((m) => m.status === "S").length} />
         <Stat label="Expected" value={feed.members.length} />
-        <Stat label="Visitors" value={feed.visitors} />
+        <VisitorCounter key={feed.visitors} meetingId={meetingId} value={feed.visitors} editable={canManual || canFinalize} />
       </div>
 
       {flagged.length ? (

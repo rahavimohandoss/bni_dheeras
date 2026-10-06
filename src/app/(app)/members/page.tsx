@@ -1,4 +1,4 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq } from "drizzle-orm";
 import type { Metadata } from "next";
 import { PageContainer, PageHeader } from "@/components/page-header";
 import { db } from "@/db";
@@ -20,7 +20,7 @@ export default async function MembersPage() {
       photoKey: member.photoKey,
     })
     .from(member)
-    .where(eq(member.status, "active"))
+    .where(and(eq(member.status, "active"), eq(member.isChapterMember, true)))
     .orderBy(asc(member.fullName));
   return (
     <PageContainer wide>

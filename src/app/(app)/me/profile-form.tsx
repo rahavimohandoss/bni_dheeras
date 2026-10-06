@@ -20,6 +20,8 @@ type Values = {
   linkedin: string;
   youtube: string;
   x: string;
+  dateOfBirth: string;
+  anniversaryDate: string;
 };
 
 export function ProfileForm({
@@ -71,6 +73,12 @@ export function ProfileForm({
         </Field>
         <Field label="WhatsApp number">
           <Input value={v.whatsapp} onChange={set("whatsapp")} inputMode="tel" />
+        </Field>
+        <Field label="Date of birth" hint="Only the President, VP and Secretary see this, for chapter celebrations.">
+          <Input type="date" value={v.dateOfBirth} onChange={set("dateOfBirth")} />
+        </Field>
+        <Field label="Wedding anniversary" hint="Optional. Also only for the Head Table's celebrations list.">
+          <Input type="date" value={v.anniversaryDate} onChange={set("anniversaryDate")} />
         </Field>
         <div className="sm:col-span-2">
           <Field label="Business presentation video link" hint="YouTube links play right on your profile.">

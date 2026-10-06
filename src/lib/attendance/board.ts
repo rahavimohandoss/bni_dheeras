@@ -1,19 +1,16 @@
 import "server-only";
-import { and, count, desc, eq, gte, inArray, lt } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "@/db";
 import {
   attendance,
   type AttendanceMethod,
   type AttendanceStatus,
   checkinAttempt,
-  form,
-  formResponse,
   leaveRequest,
   member,
   substitute,
 } from "@/db/schema";
 import { publicUrl } from "@/lib/storage";
-import { startOfIstDay } from "@/lib/time";
 import { expectedMembers, type MeetingWithVenue } from "./queries";
 
 export type BoardMember = {
@@ -41,7 +38,7 @@ export type BoardData = {
 
 /** Everything the LVH board and the PALMS summary need for one meeting. */
 export async function getBoardData(m: MeetingWithVenue): Promise<BoardData> {
-  const [expected, rows, leaves, subs, attempts, visitors] = await Promise.all([
+  const [expected, rows, leaves, subs, attempts] = await Promise.all([
     expectedMembers(m.startsAt),
     db.select().from(attendance).where(eq(attendance.meetingId, m.id)),
     db.select().from(leaveRequest).where(eq(leaveRequest.meetingId, m.id)),
@@ -59,7 +56,6 @@ export async function getBoardData(m: MeetingWithVenue): Promise<BoardData> {
       .where(and(eq(checkinAttempt.meetingId, m.id), eq(checkinAttempt.result, "rejected")))
       .orderBy(desc(checkinAttempt.at))
       .limit(40),
-    visitorCount(m.startsAt),
   ]);
 
   const byMember = new Map(rows.map((r) => [r.memberId, r]));
@@ -77,7 +73,8 @@ export async function getBoardData(m: MeetingWithVenue): Promise<BoardData> {
           photoKey: member.photoKey,
         })
         .from(member)
-        .where(inArray(member.id, extraIds))
+        // Admin-only accounts never show, even if an old attendance row exists.
+        .where(and(inArray(member.id, extraIds), eq(member.isChapterMember, true)))
     : [];
 
   const members: BoardMember[] = [...expected, ...extras].map((e) => {
@@ -111,24 +108,6 @@ export async function getBoardData(m: MeetingWithVenue): Promise<BoardData> {
       distanceM: a.distanceM,
       via: a.via,
     })),
-    visitors,
+    visitors: m.visitorCount ?? 0,
   };
-}
-
-/** Visitor Registration responses submitted on the meeting's day (IST). */
-export async function visitorCount(meetingStartsAt: Date): Promise<number> {
-  const dayStart = startOfIstDay(meetingStartsAt);
-  const dayEnd = new Date(dayStart.getTime() + 86_400_000);
-  const [row] = await db
-    .select({ n: count() })
-    .from(formResponse)
-    .innerJoin(form, eq(form.id, formResponse.formId))
-    .where(
-      and(
-        eq(form.kind, "visitor_registration"),
-        gte(formResponse.createdAt, dayStart),
-        lt(formResponse.createdAt, dayEnd),
-      ),
-    );
-  return row?.n ?? 0;
 }

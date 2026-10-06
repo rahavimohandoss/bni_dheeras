@@ -22,6 +22,8 @@ export type CurrentMember = {
   fullAccess: boolean;
   /** Signed in with the default password and hasn't chosen their own yet. */
   mustChangePassword: boolean;
+  /** False for admin-only accounts, which don't check in or appear in member lists. */
+  isChapterMember: boolean;
   roles: Role[];
   caps: Set<Capability>;
 };
@@ -70,6 +72,7 @@ export const getCurrentMember = cache(async (): Promise<CurrentMember | null> =>
     isAdmin: m.isAdmin,
     fullAccess: hasFullAccess(roles, m.isAdmin),
     mustChangePassword: m.mustChangePassword,
+    isChapterMember: m.isChapterMember,
     roles,
     caps: capabilitiesFor(roles, m.isAdmin),
   };

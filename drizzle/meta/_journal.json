@@ -15,6 +15,13 @@
       "when": 1791220046757,
       "tag": "0001_password_login",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791275691813,
+      "tag": "0002_admin_feedback_batch",
+      "breakpoints": true
     }
   ]
 }

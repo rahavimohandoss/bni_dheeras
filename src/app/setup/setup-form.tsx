@@ -53,6 +53,15 @@ export function SetupForm() {
         <Input id="email" name="email" type="email" required />
       </div>
       <PasswordFields />
+      <label className="flex items-start gap-2 text-sm">
+        <input type="checkbox" name="isChapterMember" className="mt-1" />
+        <span>
+          This admin is also a chapter member
+          <span className="block text-xs text-muted-foreground">
+            Leave unticked for an admin-only login: it won&apos;t appear in attendance or the member list.
+          </span>
+        </span>
+      </label>
       <SubmitButton className="w-full">Create admin and sign in</SubmitButton>
     </form>
   );

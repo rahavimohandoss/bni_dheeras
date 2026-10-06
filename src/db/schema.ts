@@ -136,6 +136,11 @@ export const member = pgTable("member", {
   isAdmin: boolean("is_admin").notNull().default(false),
   /** Still on the chapter's default password: must choose their own at next sign-in. */
   mustChangePassword: boolean("must_change_password").notNull().default(true),
+  /**
+   * False for admin-only accounts (e.g. the chapter's app admin login): they
+   * never appear in attendance, PALMS, the member list or celebrations.
+   */
+  isChapterMember: boolean("is_chapter_member").notNull().default(true),
   joinedOn: date("joined_on"),
   calendarToken: text("calendar_token")
     .notNull()
@@ -258,13 +263,15 @@ export const meeting = pgTable(
     startsAt: timestamp("starts_at", { withTimezone: true }).notNull(),
     endsAt: timestamp("ends_at", { withTimezone: true }).notNull(),
     checkinOpensAt: timestamp("checkin_opens_at", { withTimezone: true }).notNull(),
-    /** Minutes after start before a check-in counts as Late. NULL = no grace. */
+    /** Minutes after start before a check-in counts as Late. Always NULL now: the chapter uses no grace. */
     graceMinutes: integer("grace_minutes"),
     /** Overrides the venue geofence for this meeting. NULL = use the venue's. */
     geofenceM: integer("geofence_m"),
     qrSecret: text("qr_secret").notNull(),
     status: text("status", { enum: MEETING_STATUSES }).notNull().default("scheduled"),
     headcount: integer("headcount"),
+    /** Visitors at the meeting, entered by the LVH team. */
+    visitorCount: integer("visitor_count"),
     finalizedAt: timestamp("finalized_at", { withTimezone: true }),
     finalizedById: text("finalized_by_id").references(() => member.id),
     notes: text("notes"),
@@ -273,7 +280,8 @@ export const meeting = pgTable(
   (t) => [index("meeting_starts_idx").on(t.startsAt)],
 );
 
-export const ATTENDANCE_STATUSES = ["P", "L", "A", "M", "S"] as const;
+/** In PALMS order: Present, Absent, Late, Medical, Substitute. */
+export const ATTENDANCE_STATUSES = ["P", "A", "L", "M", "S"] as const;
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
 export const ATTENDANCE_METHODS = ["self_qr", "lvh_scan", "manual", "auto", "substitute"] as const;
 export type AttendanceMethod = (typeof ATTENDANCE_METHODS)[number];
@@ -411,6 +419,9 @@ export const memberProfile = pgTable("member_profile", {
   socials: jsonb("socials").$type<Socials>().notNull().default({}),
   videoUrl: text("video_url"),
   logoKey: text("logo_key"),
+  /** For the Head Table's celebrations list. */
+  dateOfBirth: date("date_of_birth"),
+  anniversaryDate: date("anniversary_date"),
   updatedAt: updatedAt(),
 });
 
@@ -478,6 +489,10 @@ export const awardType = pgTable("award_type", {
   name: text("name").notNull().unique(),
   sortOrder: integer("sort_order").notNull().default(0),
   isActive: boolean("is_active").notNull().default(true),
+  /** Whether the Head Table can add a note / a value (e.g. "Rs 20 lakh") for this recognition. */
+  noteEnabled: boolean("note_enabled").notNull().default(true),
+  valueEnabled: boolean("value_enabled").notNull().default(true),
+  valueHint: text("value_hint"),
 });
 
 export const award = pgTable(
@@ -502,6 +517,38 @@ export const award = pgTable(
   },
   (t) => [uniqueIndex("award_unique").on(t.meetingId, t.awardTypeId)],
 );
+
+/* ------------------------------------------------------------------ */
+/* Suggestions & feedback                                              */
+/* ------------------------------------------------------------------ */
+
+export const FEEDBACK_KINDS = ["suggestion", "feedback"] as const;
+export const FEEDBACK_STATUSES = ["new", "in_progress", "done"] as const;
+export type FeedbackStatus = (typeof FEEDBACK_STATUSES)[number];
+
+export const feedback = pgTable(
+  "feedback",
+  {
+    id: id(),
+    memberId: text("member_id")
+      .notNull()
+      .references(() => member.id, { onDelete: "cascade" }),
+    kind: text("kind", { enum: FEEDBACK_KINDS }).notNull(),
+    message: text("message").notNull(),
+    /** The Head Table sees "Anonymous" instead of the member's name. */
+    anonymous: boolean("anonymous").notNull().default(false),
+    status: text("status", { enum: FEEDBACK_STATUSES }).notNull().default("new"),
+    /** The Head Table's reply, shown to the member. */
+    response: text("response"),
+    respondedById: text("responded_by_id").references(() => member.id),
+    respondedAt: timestamp("responded_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("feedback_created_idx").on(t.createdAt), index("feedback_member_idx").on(t.memberId)],
+);
+
+/* Forms: the module was removed (Oct 2026). The tables stay so earlier responses aren't lost. */
 
 export const FORM_KINDS = [
   "custom",

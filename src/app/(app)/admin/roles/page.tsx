@@ -18,7 +18,7 @@ export default async function RolesPage({ searchParams }: PageProps<"/admin/role
   const selected =
     terms.find((t) => t.id === termParam) ?? terms.find((t) => t.startsOn <= today && t.endsOn >= today) ?? terms[0];
   const members = await db
-    .select({ id: member.id, fullName: member.fullName, isAdmin: member.isAdmin, status: member.status })
+    .select({ id: member.id, fullName: member.fullName, isAdmin: member.isAdmin, isChapterMember: member.isChapterMember, status: member.status })
     .from(member)
     .orderBy(asc(member.fullName));
   const assignments = selected

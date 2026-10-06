@@ -13,21 +13,29 @@ import { createMember, memberInputSchema } from "@/lib/members";
 import { getDefaultPassword, hashPassword } from "@/lib/passwords";
 import { assertCap } from "@/lib/session";
 
-export async function addMember(input: z.input<typeof memberInputSchema>): Promise<ActionResult<{ id: string }>> {
+export async function addMember(
+  input: z.input<typeof memberInputSchema>,
+  isChapterMember = true,
+): Promise<ActionResult<{ id: string }>> {
   return runAction(async () => {
     const me = await assertCap("members.manage");
     const data = memberInputSchema.parse(input);
-    const id = await createMember(data);
+    const id = await createMember({ ...data, isChapterMember: z.boolean().parse(isChapterMember) });
     await audit({ actorId: me.id, action: "member.create", entity: "member", entityId: id, after: data });
     refresh();
     return { id };
   });
 }
 
-export async function updateMember(id: string, input: z.input<typeof memberInputSchema>): Promise<ActionResult> {
+export async function updateMember(
+  id: string,
+  input: z.input<typeof memberInputSchema>,
+  isChapterMember?: boolean,
+): Promise<ActionResult> {
   return runAction(async () => {
     const me = await assertCap("members.manage");
     const data = memberInputSchema.parse(input);
+    const chapterMember = z.boolean().optional().parse(isChapterMember);
     const [before] = await db.select().from(member).where(eq(member.id, id));
     if (!before) throw new UserError("Member not found.");
     try {
@@ -41,6 +49,7 @@ export async function updateMember(id: string, input: z.input<typeof memberInput
             businessName: data.businessName,
             category: data.category,
             joinedOn: data.joinedOn,
+            ...(chapterMember === undefined ? {} : { isChapterMember: chapterMember }),
           })
           .where(eq(member.id, id));
         await tx.update(user).set({ name: data.fullName, email: data.email }).where(eq(user.id, id));
@@ -54,8 +63,8 @@ export async function updateMember(id: string, input: z.input<typeof memberInput
       action: "member.update",
       entity: "member",
       entityId: id,
-      before: { fullName: before.fullName, email: before.email, phone: before.phone },
-      after: data,
+      before: { fullName: before.fullName, email: before.email, phone: before.phone, isChapterMember: before.isChapterMember },
+      after: { ...data, isChapterMember: chapterMember },
     });
     refresh();
     return null;

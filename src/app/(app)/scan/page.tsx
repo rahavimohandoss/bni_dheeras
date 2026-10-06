@@ -10,6 +10,16 @@ export const metadata: Metadata = { title: "Check in" };
 
 export default async function ScanPage() {
   const me = await requireMember();
+  if (!me.isChapterMember) {
+    return (
+      <PageContainer>
+        <PageHeader title="Check in" />
+        <p className="rounded-lg bg-muted p-4 text-sm">
+          This is an admin account, not a chapter member, so it doesn&apos;t check in or appear in attendance.
+        </p>
+      </PageContainer>
+    );
+  }
   const [devices, meeting] = await Promise.all([getMemberDevices(me.id), getCurrentOrNextMeeting()]);
   const isDev = process.env.NODE_ENV === "development";
 

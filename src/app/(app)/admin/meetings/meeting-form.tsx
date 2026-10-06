@@ -19,7 +19,6 @@ export type MeetingFormValues = {
   date: string;
   startTime: string;
   endTime: string;
-  graceMinutes: string;
   geofenceM: string;
   opensBeforeMin: string;
   weeks: string;
@@ -58,7 +57,6 @@ export function MeetingForm({
         date: v.date,
         startTime: v.startTime,
         endTime: v.endTime,
-        graceMinutes: v.graceMinutes,
         geofenceM: v.geofenceM,
         opensBeforeMin: v.opensBeforeMin,
         venueId: v.venueId,
@@ -66,7 +64,11 @@ export function MeetingForm({
       if (formMode === "weekly") {
         const res = await generateWeekly({ ...common, weeks: v.weeks });
         if (!res.ok) return void toast.error(res.error);
-        toast.success(`${res.data.count} weekly meetings created.`);
+        toast.success(
+          res.data.skipped
+            ? `${res.data.count} created; ${res.data.skipped} week(s) already had a meeting and were skipped.`
+            : `${res.data.count} weekly meetings created.`,
+        );
         router.refresh();
         return;
       }
@@ -146,17 +148,6 @@ export function MeetingForm({
             <Input inputMode="numeric" value={v.weeks} onChange={(e) => set("weeks", e.target.value.replace(/\D/g, ""))} />
           </Field>
         ) : null}
-        <Field
-          label="Grace minutes (late after)"
-          hint="Leave empty: anyone checking in after the exact start time is Late."
-        >
-          <Input
-            inputMode="numeric"
-            placeholder="Empty = exact start time"
-            value={v.graceMinutes}
-            onChange={(e) => set("graceMinutes", e.target.value.replace(/\D/g, ""))}
-          />
-        </Field>
         <Field
           label="Geofence override (metres)"
           hint={venue ? `Leave empty to use the venue's ${venue.geofenceM} m.` : "Leave empty to use the venue's radius."}

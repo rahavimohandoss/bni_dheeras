@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { newPairingCode, revokeKiosk } from "@/actions/kiosk";
+import { ConfirmButton } from "@/components/confirm-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -48,21 +49,13 @@ export function PairScreen() {
 }
 
 export function RevokeScreen({ id }: { id: string }) {
-  const [pending, start] = useTransition();
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      disabled={pending}
-      onClick={() =>
-        start(async () => {
-          const res = await revokeKiosk(id);
-          if (res.ok) toast.success("Screen removed.");
-          else toast.error(res.error);
-        })
-      }
-    >
-      Remove
-    </Button>
+    <ConfirmButton
+      label="Remove"
+      title="Remove this venue screen?"
+      description="It stops showing the check-in QR right away. Pair it again with a new code if needed."
+      success="Screen removed."
+      action={() => revokeKiosk(id)}
+    />
   );
 }

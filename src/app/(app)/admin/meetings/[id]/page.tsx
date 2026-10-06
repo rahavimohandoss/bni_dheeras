@@ -9,6 +9,8 @@ import { db } from "@/db";
 import { meeting, venue } from "@/db/schema";
 import { requireCapPage } from "@/lib/session";
 import { formatDate, toIstDateInput, toIstTimeInput } from "@/lib/time";
+import { deleteMeeting, restoreMeeting } from "@/actions/meetings";
+import { ConfirmButton } from "@/components/confirm-button";
 import { CancelMeetingButton } from "./cancel-button";
 import { MeetingForm } from "../meeting-form";
 
@@ -36,11 +38,38 @@ export default async function EditMeetingPage({ params }: PageProps<"/admin/meet
               <Link href={`/lvh/${m.id}`}>Live board</Link>
             </Button>
             {m.status === "scheduled" ? <CancelMeetingButton id={m.id} /> : null}
+            {m.status === "cancelled" && m.endsAt > new Date() ? (
+              <ConfirmButton
+                label="Restore"
+                title="Restore this meeting?"
+                description="It goes back on the schedule and check-in opens as usual."
+                success="Meeting restored."
+                action={restoreMeeting.bind(null, m.id)}
+                variant="outline"
+                size="default"
+                destructive={false}
+              />
+            ) : null}
+            {m.status !== "finalized" ? (
+              <ConfirmButton
+                label="Delete"
+                title="Delete this meeting?"
+                description="Only for meetings created by mistake. A meeting with check-ins or recognitions can only be cancelled."
+                success="Meeting deleted."
+                action={deleteMeeting.bind(null, m.id)}
+                redirectTo="/admin/meetings"
+                variant="outline"
+                size="default"
+              />
+            ) : null}
           </>
         }
       />
       {m.status !== "scheduled" ? (
-        <p className="rounded-lg bg-muted p-3 text-sm">This meeting is {m.status} and can no longer be edited.</p>
+        <p className="rounded-lg bg-muted p-3 text-sm">
+          This meeting is {m.status} and can no longer be edited.
+          {m.status === "cancelled" && m.notes ? <> Reason: {m.notes}</> : null}
+        </p>
       ) : (
         <Card>
           <CardContent className="py-4">
@@ -56,7 +85,6 @@ export default async function EditMeetingPage({ params }: PageProps<"/admin/meet
                 date: toIstDateInput(m.startsAt),
                 startTime: toIstTimeInput(m.startsAt),
                 endTime: toIstTimeInput(m.endsAt),
-                graceMinutes: m.graceMinutes === null ? "" : String(m.graceMinutes),
                 geofenceM: m.geofenceM === null ? "" : String(m.geofenceM),
                 opensBeforeMin: String(opensBefore),
                 weeks: "1",

@@ -1,20 +1,31 @@
 "use client";
 
-import { XIcon } from "lucide-react";
+import { PencilIcon, XIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { assignRole, createTerm, removeRole, setAdmin } from "@/actions/roles";
+import { assignRole, createTerm, deleteTerm, removeRole, setAdmin, updateTerm } from "@/actions/roles";
+import { ConfirmButton } from "@/components/confirm-button";
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type Term = { id: string; name: string; startsOn: string; endsOn: string };
-type MemberOpt = { id: string; fullName: string; isAdmin: boolean };
+type MemberOpt = { id: string; fullName: string; isAdmin: boolean; isChapterMember: boolean };
 
 export function RolesAdmin({
   meId,
@@ -35,7 +46,9 @@ export function RolesAdmin({
   const [pending, start] = useTransition();
   const [memberId, setMemberId] = useState("");
   const [role, setRole] = useState("");
+  const [editingTerm, setEditingTerm] = useState(false);
   const nameOf = (id: string) => members.find((m) => m.id === id)?.fullName ?? "Former member";
+  const selectedTerm = terms.find((t) => t.id === selectedTermId) ?? null;
 
   const run = (fn: () => Promise<{ ok: boolean; error?: string }>, ok?: string) =>
     start(async () => {
@@ -61,6 +74,24 @@ export function RolesAdmin({
               ))}
             </SelectContent>
           </Select>
+          {selectedTerm ? (
+            <>
+              <span className="text-sm text-muted-foreground">
+                {selectedTerm.startsOn} → {selectedTerm.endsOn}
+              </span>
+              <Button variant="ghost" size="sm" onClick={() => setEditingTerm(true)}>
+                <PencilIcon /> Edit
+              </Button>
+              <ConfirmButton
+                label="Delete"
+                title={`Delete the term "${selectedTerm.name}"?`}
+                description="Its role list is deleted too. The current term can't be deleted."
+                success="Term deleted."
+                action={() => deleteTerm(selectedTerm.id)}
+                redirectTo="/admin/roles"
+              />
+            </>
+          ) : null}
         </div>
 
         {selectedTermId ? (
@@ -74,11 +105,13 @@ export function RolesAdmin({
                   <SelectValue placeholder="Member" />
                 </SelectTrigger>
                 <SelectContent>
-                  {members.map((m) => (
-                    <SelectItem key={m.id} value={m.id}>
-                      {m.fullName}
-                    </SelectItem>
-                  ))}
+                  {members
+                    .filter((m) => m.isChapterMember)
+                    .map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.fullName}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
               <Select value={role} onValueChange={setRole}>
@@ -118,15 +151,19 @@ export function RolesAdmin({
                   <div className="flex flex-wrap gap-1.5">
                     {holders.length === 0 ? <span className="text-sm text-muted-foreground">Nobody</span> : null}
                     {holders.map((h) => (
-                      <Badge key={h.id} variant="secondary" className="gap-1">
+                      <Badge key={h.id} variant="secondary" className="gap-0.5 pr-0.5">
                         {nameOf(h.memberId)}
-                        <button
-                          type="button"
-                          aria-label={`Remove ${nameOf(h.memberId)}`}
-                          onClick={() => run(() => removeRole(h.id))}
-                        >
-                          <XIcon className="size-3" />
-                        </button>
+                        <ConfirmButton
+                          label=""
+                          icon={<XIcon className="size-3" />}
+                          ariaLabel={`Remove ${nameOf(h.memberId)}`}
+                          className="size-5 p-0"
+                          title={`Remove ${nameOf(h.memberId)} as ${r.label}?`}
+                          description="Their permissions for this role end right away."
+                          confirmLabel="Remove"
+                          success="Role removed."
+                          action={() => removeRole(h.id)}
+                        />
                       </Badge>
                     ))}
                   </div>
@@ -146,19 +183,101 @@ export function RolesAdmin({
           </CardHeader>
           <CardContent className="max-h-80 space-y-2 overflow-y-auto">
             {members.map((m) => (
-              <label key={m.id} className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={m.isAdmin}
-                  disabled={pending || m.id === meId}
-                  onCheckedChange={(v) => run(() => setAdmin(m.id, !!v))}
-                />
-                {m.fullName}
-              </label>
+              <AdminToggle key={m.id} member={m} disabled={m.id === meId} />
             ))}
           </CardContent>
         </Card>
       </div>
+
+      {editingTerm && selectedTerm ? <EditTerm term={selectedTerm} onClose={() => setEditingTerm(false)} /> : null}
     </div>
+  );
+}
+
+/** Admin tick with a confirmation: it grants or removes full access. */
+function AdminToggle({ member: m, disabled }: { member: MemberOpt; disabled: boolean }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [pending, start] = useTransition();
+  const next = !m.isAdmin;
+  return (
+    <>
+      <label className="flex items-center gap-2 text-sm">
+        <Checkbox checked={m.isAdmin} disabled={disabled || pending} onCheckedChange={() => setOpen(true)} />
+        {m.fullName}
+      </label>
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{next ? `Make ${m.fullName} an app admin?` : `Remove ${m.fullName}'s admin access?`}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {next
+                ? "Admins can do everything in the app: members, roles, settings, attendance corrections and the audit log."
+                : "They keep the permissions of any roles they hold this term."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>Cancel</AlertDialogCancel>
+            <Button
+              variant={next ? "default" : "destructive"}
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  const res = await setAdmin(m.id, next);
+                  if (!res.ok) return void toast.error(res.error);
+                  setOpen(false);
+                  toast.success(next ? "Admin access granted." : "Admin access removed.");
+                  router.refresh();
+                })
+              }
+            >
+              {next ? "Make admin" : "Remove admin"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+function EditTerm({ term, onClose }: { term: Term; onClose: () => void }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Edit term</DialogTitle>
+        </DialogHeader>
+        <form
+          className="space-y-3"
+          action={(fd) =>
+            start(async () => {
+              const res = await updateTerm(term.id, {
+                name: String(fd.get("name") ?? ""),
+                startsOn: String(fd.get("startsOn") ?? ""),
+                endsOn: String(fd.get("endsOn") ?? ""),
+              });
+              if (!res.ok) return void toast.error(res.error);
+              toast.success("Term updated.");
+              onClose();
+              router.refresh();
+            })
+          }
+        >
+          <Input name="name" defaultValue={term.name} required />
+          <div className="grid grid-cols-2 gap-2">
+            <Input name="startsOn" type="date" defaultValue={term.startsOn} required />
+            <Input name="endsOn" type="date" defaultValue={term.endsOn} required />
+          </div>
+          <DialogFooter>
+            <Button type="submit" disabled={pending}>
+              Save
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 }
 

@@ -2,15 +2,8 @@ import "server-only";
 import { and, gte, lte } from "drizzle-orm";
 import { db } from "@/db";
 import { awardType, term } from "@/db/schema";
+import { DEFAULT_AWARDS } from "@/lib/award-defaults";
 import { toIstDateInput } from "@/lib/time";
-
-export const DEFAULT_AWARDS = [
-  "Highest Referral Giver",
-  "Top Business Giver",
-  "Best Attire",
-  "Best 30-Second Presentation",
-  "Star of the Week",
-];
 
 /** BNI terms here run April–September and October–March. */
 export function termFor(date: Date): { name: string; startsOn: string; endsOn: string } {
@@ -30,7 +23,7 @@ export async function ensureDefaults() {
   if (existing.length === 0) {
     await db
       .insert(awardType)
-      .values(DEFAULT_AWARDS.map((name, i) => ({ name, sortOrder: i })))
+      .values(DEFAULT_AWARDS.map((a, i) => ({ ...a, sortOrder: i })))
       .onConflictDoNothing();
   }
   const today = toIstDateInput(new Date());

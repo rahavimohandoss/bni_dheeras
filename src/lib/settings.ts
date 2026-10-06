@@ -5,8 +5,6 @@ import { db } from "@/db";
 import { setting } from "@/db/schema";
 
 export const attendanceSettingsSchema = z.object({
-  /** Minutes after start that still count as on time. null = exact start time. */
-  defaultGraceMinutes: z.number().int().min(0).max(120).nullable(),
   defaultGeofenceM: z.number().int().min(25).max(2000),
   /** How much reported GPS inaccuracy is forgiven, capped at this many metres. */
   gpsAccuracyAllowanceM: z.number().int().min(0).max(500),
@@ -20,8 +18,16 @@ export const attendanceSettingsSchema = z.object({
 });
 export type AttendanceSettings = z.infer<typeof attendanceSettingsSchema>;
 
+/** The rules the Head Table changes in Settings; the others keep their stored or default values. */
+export const editableAttendanceSchema = attendanceSettingsSchema.pick({
+  checkinOpensBeforeMin: true,
+  absenceLimit: true,
+  absenceWindowMonths: true,
+  lateFlagCount: true,
+});
+export type EditableAttendanceSettings = z.infer<typeof editableAttendanceSchema>;
+
 export const DEFAULT_ATTENDANCE_SETTINGS: AttendanceSettings = {
-  defaultGraceMinutes: null,
   defaultGeofenceM: 150,
   gpsAccuracyAllowanceM: 50,
   maxGpsAccuracyM: 500,

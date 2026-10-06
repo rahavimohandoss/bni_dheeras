@@ -3,15 +3,18 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { saveAwards } from "@/actions/awards";
+import { saveAwards, unpublishAwards } from "@/actions/awards";
+import { ConfirmButton } from "@/components/confirm-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { cn } from "@/lib/utils";
 
 type Entry = { awardTypeId: string; memberId: string; note: string; value: string; published?: boolean };
+type AwardTypeOption = { id: string; name: string; noteEnabled: boolean; valueEnabled: boolean; valueHint: string | null };
 const NONE = "__none";
 
 export function AwardsEditor({
@@ -23,7 +26,7 @@ export function AwardsEditor({
 }: {
   meetings: { id: string; label: string }[];
   meetingId: string;
-  types: { id: string; name: string }[];
+  types: AwardTypeOption[];
   members: { id: string; name: string }[];
   initial: Entry[];
 }) {
@@ -37,16 +40,11 @@ export function AwardsEditor({
     setEntries((list) => list.map((e) => (e.awardTypeId === typeId ? { ...e, ...patch } : e)));
 
   const save = (publish: boolean) =>
-    start(async () => {
-      const res = await saveAwards(
-        meetingId,
-        entries.map(({ awardTypeId, memberId, note, value }) => ({ awardTypeId, memberId, note, value })),
-        publish,
-      );
-      if (!res.ok) return void toast.error(res.error);
-      toast.success(publish ? "Published. Winners have been notified." : "Draft saved.");
-      router.refresh();
-    });
+    saveAwards(
+      meetingId,
+      entries.map(({ awardTypeId, memberId, note, value }) => ({ awardTypeId, memberId, note, value })),
+      publish,
+    );
 
   return (
     <div className="space-y-4">
@@ -69,12 +67,16 @@ export function AwardsEditor({
 
       {types.map((t) => {
         const e = entries.find((x) => x.awardTypeId === t.id)!;
+        const extras = Number(t.noteEnabled) + Number(t.valueEnabled);
         return (
           <Card key={t.id}>
-            <CardContent className="grid gap-3 py-4 sm:grid-cols-[1fr_1fr_140px]">
-              <div className="space-y-1.5 sm:col-span-3">
-                <div className="font-semibold">{t.name}</div>
-              </div>
+            <CardContent
+              className={cn(
+                "grid gap-3 py-4",
+                extras === 2 ? "sm:grid-cols-[1fr_1fr_160px]" : extras === 1 ? "sm:grid-cols-2" : "sm:grid-cols-1",
+              )}
+            >
+              <div className="font-semibold sm:col-span-full">{t.name}</div>
               <Select value={e.memberId || NONE} onValueChange={(v) => update(t.id, { memberId: v === NONE ? "" : v })}>
                 <SelectTrigger className="w-full">
                   <SelectValue placeholder="Choose member" />
@@ -88,24 +90,75 @@ export function AwardsEditor({
                   ))}
                 </SelectContent>
               </Select>
-              <Input placeholder="Note (optional)" value={e.note} onChange={(ev) => update(t.id, { note: ev.target.value })} />
-              <Input
-                placeholder="Value (e.g. 4 referrals)"
-                value={e.value}
-                onChange={(ev) => update(t.id, { value: ev.target.value })}
-              />
+              {t.noteEnabled ? (
+                <Input placeholder="Note (optional)" value={e.note} onChange={(ev) => update(t.id, { note: ev.target.value })} />
+              ) : null}
+              {t.valueEnabled ? (
+                <Input
+                  placeholder={t.valueHint ?? "Value"}
+                  value={e.value}
+                  onChange={(ev) => update(t.id, { value: ev.target.value })}
+                />
+              ) : null}
             </CardContent>
           </Card>
         );
       })}
 
-      <div className="flex gap-2">
-        <Button variant="outline" disabled={pending} onClick={() => save(false)}>
-          Save draft
-        </Button>
-        <Button disabled={pending} onClick={() => save(true)}>
-          Publish
-        </Button>
+      <div className="flex flex-wrap gap-2">
+        {published ? (
+          <>
+            <Button
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  const res = await save(true);
+                  if (!res.ok) return void toast.error(res.error);
+                  toast.success("Saved. Anyone newly added has been notified.");
+                  router.refresh();
+                })
+              }
+            >
+              Save changes
+            </Button>
+            <ConfirmButton
+              label="Unpublish"
+              title="Unpublish this week's recognitions?"
+              description="Members won't see them until you publish again."
+              success="Unpublished."
+              action={() => unpublishAwards(meetingId)}
+              variant="outline"
+              size="default"
+            />
+          </>
+        ) : (
+          <>
+            <Button
+              variant="outline"
+              disabled={pending}
+              onClick={() =>
+                start(async () => {
+                  const res = await save(false);
+                  if (!res.ok) return void toast.error(res.error);
+                  toast.success("Draft saved.");
+                  router.refresh();
+                })
+              }
+            >
+              Save draft
+            </Button>
+            <ConfirmButton
+              label="Publish"
+              title="Publish this week's recognitions?"
+              description="Everyone can see them, and each winner gets a notification."
+              success="Published. Winners have been notified."
+              action={() => save(true)}
+              variant="default"
+              size="default"
+              destructive={false}
+            />
+          </>
+        )}
       </div>
     </div>
   );

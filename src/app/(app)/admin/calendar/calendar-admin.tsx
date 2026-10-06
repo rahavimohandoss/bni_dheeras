@@ -4,6 +4,7 @@ import { PlusIcon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
 import { deleteCalendarEvent, saveCalendarEvent } from "@/actions/calendar";
+import { ConfirmButton } from "@/components/confirm-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -67,40 +68,33 @@ export function CalendarAdmin({
             <div className="min-w-0 flex-1">
               <div className="font-medium">{e.title}</div>
               <div className="text-sm text-muted-foreground">
-                {e.date} · {e.startTime}–{e.endTime}
+                {shortDate(e.date)} · {e.startTime}–{e.endTime}
                 {e.memberId ? ` · ${members.find((m) => m.id === e.memberId)?.name ?? ""}` : ""}
               </div>
             </div>
             <Badge variant="secondary">{labelOf(e.kind)}</Badge>
-            <Button variant="ghost" size="sm" onClick={() => setEditing(e)}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                setEditing(e);
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+            >
               Edit
             </Button>
-            <DeleteButton id={e.id} />
+            <ConfirmButton
+              label="Delete"
+              title={`Delete "${e.title}"?`}
+              description="It disappears from everyone's calendar."
+              success="Deleted."
+              action={() => deleteCalendarEvent(e.id)}
+            />
           </div>
         ))}
         {events.length === 0 ? <div className="px-4 py-6 text-center text-sm text-muted-foreground">Nothing yet.</div> : null}
       </div>
     </div>
-  );
-}
-
-function DeleteButton({ id }: { id: string }) {
-  const [pending, start] = useTransition();
-  return (
-    <Button
-      variant="ghost"
-      size="sm"
-      disabled={pending}
-      onClick={() => {
-        if (!confirm("Delete this calendar item?")) return;
-        start(async () => {
-          const res = await deleteCalendarEvent(id);
-          if (!res.ok) toast.error(res.error);
-        });
-      }}
-    >
-      Delete
-    </Button>
   );
 }
 
@@ -208,5 +202,12 @@ function EventForm({
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+/** "2026-10-14" → "Wed, 14 Oct 2026" (the date is already in IST). */
+function shortDate(isoDate: string) {
+  return new Intl.DateTimeFormat("en-IN", { weekday: "short", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" }).format(
+    new Date(`${isoDate}T00:00:00Z`),
   );
 }

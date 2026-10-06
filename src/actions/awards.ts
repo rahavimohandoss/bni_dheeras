@@ -32,17 +32,24 @@ export async function saveAwards(
     const [m] = await db.select().from(meeting).where(eq(meeting.id, z.uuid().parse(meetingId)));
     if (!m) throw new UserError("Meeting not found.");
     const parsed = z.array(entrySchema).max(20).parse(entries);
-    const types = new Set((await db.select({ id: awardType.id }).from(awardType)).map((t) => t.id));
+    const types = new Map((await db.select().from(awardType)).map((t) => [t.id, t]));
 
     const before = await db.select().from(award).where(eq(award.meetingId, m.id));
     await db.transaction(async (tx) => {
       for (const e of parsed) {
-        if (!types.has(e.awardTypeId)) continue;
+        const type = types.get(e.awardTypeId);
+        if (!type) continue;
         if (!e.memberId) {
           await tx.delete(award).where(and(eq(award.meetingId, m.id), eq(award.awardTypeId, e.awardTypeId)));
           continue;
         }
-        const values = { memberId: e.memberId, note: e.note, value: e.value, published: publish };
+        const values = {
+          memberId: e.memberId,
+          // Only the fields this recognition uses (e.g. Best Attire has neither).
+          note: type.noteEnabled ? e.note : null,
+          value: type.valueEnabled ? e.value : null,
+          published: publish,
+        };
         await tx
           .insert(award)
           .values({ meetingId: m.id, awardTypeId: e.awardTypeId, createdById: me.id, ...values })
@@ -57,15 +64,26 @@ export async function saveAwards(
     if (publish) {
       const wasPublished = new Set(before.filter((b) => b.published).map((b) => `${b.awardTypeId}:${b.memberId}`));
       const newWinners = parsed.filter((e) => e.memberId && !wasPublished.has(`${e.awardTypeId}:${e.memberId}`));
-      const typeNames = new Map((await db.select().from(awardType)).map((t) => [t.id, t.name]));
       for (const w of newWinners) {
         await notify([w.memberId!], {
-          title: `Congratulations! ${typeNames.get(w.awardTypeId) ?? "Weekly recognition"}`,
+          title: `Congratulations! ${types.get(w.awardTypeId)?.name ?? "Weekly recognition"}`,
           body: `For the meeting on ${formatDate(m.startsAt)}.`,
           link: "/awards",
         });
       }
     }
+    refresh();
+    return null;
+  });
+}
+
+/** Hides a meeting's recognitions again (e.g. published by mistake). Winners keep their notification. */
+export async function unpublishAwards(meetingId: string): Promise<ActionResult> {
+  return runAction(async () => {
+    const me = await assertCap("awards.manage");
+    const id = z.uuid().parse(meetingId);
+    await db.update(award).set({ published: false }).where(eq(award.meetingId, id));
+    await audit({ actorId: me.id, action: "awards.unpublish", entity: "meeting", entityId: id });
     refresh();
     return null;
   });

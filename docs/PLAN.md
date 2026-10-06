@@ -1,6 +1,6 @@
 # BNI Dheeras Chapter App — Build Plan
 
-**Status:** v1.1 · decisions confirmed 5 Oct 2026 · first build done (see §13)
+**Status:** v1.2 · decisions confirmed 5 Oct 2026, changes D8 on 6 Oct 2026 · first build done (see §13)
 **Scope:** every feature in the "BNI Dheeras Chapter App: Features" sheet, with two changes:
 
 1. **Attendance:** the LVH team no longer scans each member's QR. Instead a QR is shown on the venue screen and every member scans it. Nobody can mark attendance for someone else.
@@ -14,9 +14,16 @@
 > - **D2 Maps:** free Leaflet + OpenStreetMap, with Nominatim address search (no Google Maps).
 > - **D3 Hosting:** Vercel free (Hobby) plan.
 > - **D4 Selfie check:** not used.
-> - **D5 Late:** counts from the exact start time. Grace minutes are a per-meeting field; empty means no grace. Geofence default is **150 m**, editable per venue and per meeting.
+> - **D5 Late:** counts from the exact start time, with no grace period (the per-meeting grace field was removed on 6 Oct 2026). Geofence default is **150 m**, editable per venue and per meeting.
 > - **D6:** Dheeras only, so no multi-chapter `chapter_id`.
 > - **D7 President = Admin:** the President of the current term has exactly the same access as an Admin, including the exemption from the separation-of-duties rule (§3). It follows the role, so it moves to the new President when the term changes.
+> - **D8 Changes (6 Oct 2026):**
+>   - **Forms removed.** Old form responses stay in the database. Visitors are now counted with −/+ on the LVH board and the PALMS summary.
+>   - **Suggestions & feedback** replaces it. Any member sends one; the President, VP, Secretary and admins read it, reply and set a status. "Hide my name" hides the sender from the Head Table, the notification and the audit log.
+>   - **Celebrations.** Members add their date of birth and wedding anniversary in My profile. The President, VP and Secretary see this month's and next month's on Home, and the whole year on the Celebrations page.
+>   - **Admin-only accounts are not chapter members** (for example "BNI Dheeras Admin"). They never check in and are left out of PALMS, absences, the directory, Near me, recognitions, celebrations and the Monday report.
+>   - **Settings → Attendance rules** keeps only: check-in opens before start, absence limit and window, and the lateness flag count. Default grace, default geofence, the GPS accuracy limits and the lateness-flag window (weeks) are no longer in Settings and stay at their built-in values.
+>   - **Recognitions:** each award has only the fields it needs. Best Attire is winner only; Best 30-Second Presentation has no value; Star of the Week has no note and its value is the visitor count; Top Business Giver's value reads like "Rs 20 lakh".
 
 ---
 
@@ -30,7 +37,7 @@
   - LVH sees rejected attempts as they happen;
   - a physical headcount must match the check-ins before the meeting is finalized.
 - **Location:** members can opt in to pin their business. The list and map show all members nearest → farthest, measured from your business location or your current GPS.
-- **Build order:** Foundation → Attendance (plus a 2-meeting shadow run) → Profile & Location → Calendar & Recognitions → Dance Card → Forms → Launch.
+- **Build order:** Foundation → Attendance (plus a 2-meeting shadow run) → Profile & Location → Calendar & Recognitions → Dance Card → Suggestions & feedback, celebrations → Launch.
 
 ## 1. Hard truths before we build
 
@@ -58,7 +65,6 @@
 | QR | `qrcode` to draw the QR; a JS/WASM decoder (zxing-wasm) for the in-app scanner | Works on iPhone and Android |
 | PDF | `pdf-lib` in a route handler | Writes dance-card answers onto the chapter's own printed card |
 | Email | Resend (optional) | Email copies of alerts and the Monday report only |
-| Spam protection | Cloudflare Turnstile | On public forms |
 | Hosting | Vercel (Hobby), with functions pinned to `sin1` next to the database | Decision D3 |
 | Quality | Zod validation; Vitest for rules, tokens and distance; Playwright end-to-end tests with mocked camera and GPS; Sentry | |
 
@@ -72,10 +78,11 @@ Roles are assigned per **term**, and one member can hold several.
 | Run kiosk QR + LVH live board | | ✓ | ✓ | ✓ | ✓ | ✓ |
 | Manual check-in, confirm substitutes (reason required) | | ✓ | | | | ✓ |
 | Approve devices, approve medical leave | | | ✓ | ✓ | | ✓ |
-| Finalize meeting, PALMS summary | | Captain | ✓ | ✓ | view | ✓ |
+| Finalize meeting (and reopen it to correct a status), PALMS summary | | Captain | ✓ | ✓ | view | ✓ |
 | Weekly recognitions (Head Table) | | | | ✓ | ✓ | ✓ |
 | Calendar (each coordinator edits own slot type) | | | | ✓ | ✓ | ✓ |
-| Forms | | visitor forms | | ✓ | ✓ | ✓ |
+| Send a suggestion or feedback | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| Read and reply to suggestions; see birthdays and anniversaries | | | | ✓ | ✓ | ✓ |
 | Members, roles, settings, audit log | | | | members, audit log | | ✓ |
 
 Admin is a technical super-user, and the President of the current term has exactly the same access (decision D7). Both are exempt from the separation-of-duties rule (a device approver can't also do manual check-ins), so every action either of them takes is audit-logged.
@@ -89,7 +96,7 @@ Admin is a technical super-user, and the President of the current term has exact
 - Weekly meetings are created automatically from a recurrence. Each meeting has its own venue, so a Visitor Day at a different hall works.
 - Each meeting has three time windows:
   - check-in opens (default: 60 minutes before start);
-  - after the start time plus a grace period, check-ins count as Late (decision D5);
+  - after the start time, check-ins count as Late (decision D5, no grace period);
   - check-in closes when the meeting ends.
 - For online meetings the geofence is switched off and LVH confirms attendance from the participant list.
 - Up to the start time, a member can:
@@ -120,7 +127,7 @@ Admin is a technical super-user, and the President of the current term has exact
   - Not yet, with leave/substitute info and a call button;
   - Rejected attempts: who, why and how far away;
   - Substitutes to confirm;
-  - Visitors.
+  - Visitors: a −/+ count, which can also be corrected on the PALMS summary.
 
 **After the meeting**
 
@@ -133,7 +140,7 @@ Admin is a technical super-user, and the President of the current term has exact
   - approved medical leave becomes M;
   - confirmed substitutes become S.
 
-  The meeting is then locked. Later edits need the Secretary or Admin and a reason.
+  The meeting is then locked. To fix a wrong status, **Reopen for corrections** on the PALMS summary (Secretary, Attendance Coordinator, LVH Captain, President or Admin, with a reason) unlocks it; LVH corrects it on the board and finalizes again. Both steps are audit-logged.
 - Outputs:
   - **PALMS summary for BNI Connect entry:** every member with P/A/L/M/S, substitute names and visitor count. Can be copied to the clipboard, downloaded as CSV or printed.
   - **Absentee follow-up list** for the Attendance Coordinator: call each absentee within 24 hours, then tick and add a note.
@@ -154,9 +161,9 @@ Admin is a technical super-user, and the President of the current term has exact
    - Only the current or previous window is accepted, so a token is at most 30 seconds old.
    - The QR contains only this token, which is useless outside the app.
 4. **Place:**
-   - The distance to the venue pin must be within the geofence radius (default 150 m), with up to 50 m extra allowed for GPS inaccuracy (both editable in Settings).
+   - The distance to the venue pin must be within the geofence radius (default 150 m, set per venue and per meeting), with up to 50 m extra allowed for GPS inaccuracy.
    - If GPS accuracy is worse than about 1 km, the check-in is refused with "turn on Precise Location".
-   - These numbers will be tuned during the shadow run.
+   - The 50 m and 1 km limits are built in (no longer in Settings, per D8). A developer can tune them after the shadow run.
 5. **Time:** the server clock (Asia/Kolkata) must be within the check-in window. The phone's clock is never used.
 6. **Once per member:** the database enforces one check-in per member per meeting. A second scan just shows "Already checked in at 6:52".
 7. **Once per device:** the database enforces one check-in per device per meeting.
@@ -199,7 +206,7 @@ Every attempt, passed or failed, is stored with a reason code, distance and accu
 ### 4.5 PALMS rules, absence counter, alerts (editable in Settings)
 
 - **P:** on time.
-- **L:** after start time plus grace. LVH can also mark L for leaving early.
+- **L:** after the start time. LVH can also mark L for leaving early.
 - **A:** no record at finalize.
 - **M:** approved medical leave.
 - **S:** substitute confirmed present.
@@ -251,6 +258,7 @@ Every attempt, passed or failed, is stored with a reason code, distance and accu
 
 - **Member Profile:**
   - business name, category, about, website, social links, WhatsApp;
+  - date of birth and wedding anniversary, seen only by the President, VP and Secretary (for celebrations);
   - business presentation video link (YouTube embed);
   - photo and logo, stored in Neon Object Storage;
   - a member directory with search by name and category.
@@ -274,15 +282,12 @@ Every attempt, passed or failed, is stored with a reason code, distance and accu
   - Other members can view it from the member's profile to prepare for a 1-to-1.
 - **Weekly recognitions:**
   - Five awards: Highest Referral Giver, Top Business Giver, Best Attire, Best 30-Second Presentation, Star of the Week.
-  - For each meeting, the Head Table picks a member for each award, with an optional note, value or photo. They save it as a draft and publish after the meeting.
+  - For each meeting, the Head Table picks a member for each award, plus a note and/or value where that award has them (D8). They save it as a draft and publish after the meeting; a published week can be edited or unpublished.
   - Home shows this week's winners; the Awards page shows history and a term leaderboard.
-- **Forms:**
-  - Templates: Visitor Registration, Visitor Feedback, Event Registration, Survey.
-  - A simple builder with these field types: short text, long text, number, email, phone, single choice, multiple choice, dropdown, rating, date, yes/no. Fields can be required and have help text.
-  - Settings: public or members-only, open/close dates, a response cap (for event seats), one response per member.
-  - Share by link or QR. Responses show in a table and export to CSV.
-  - Public forms are protected by Turnstile and rate limits.
-  - Visitor Registration responses feed the visitor count in the PALMS summary.
+- **Suggestions & feedback** (replaced Forms, D8):
+  - Any member sends a suggestion or feedback, optionally hiding their name.
+  - The President, VP, Secretary and admins are notified, reply, and mark it New, In progress or Done. The member sees the reply and status on their own page.
+- **Celebrations:** birthdays and wedding anniversaries from My profile. The President, VP and Secretary see this month's and next month's on Home, with a "Today" badge, and the full year on the Celebrations page.
 
 ## 7. Data model (Neon + Drizzle)
 
@@ -291,22 +296,23 @@ Single chapter (decision D6): tables have no `chapter_id`.
 | Table | Holds | Key rules |
 |---|---|---|
 | `chapters` | Chapter, timezone | |
-| `members` | Roster, contact details, photo, status, link to auth user | Email and phone unique |
+| `members` | Roster, contact details, photo, status, link to auth user, "chapter member" flag | Email and phone unique; admin-only accounts have the flag off |
 | `terms`, `role_assignments` | Who holds which role in which term | |
 | `devices` | Public key, status (pending / approved / revoked), device label, approver | Each key unique; one approved device per member |
 | `kiosks` | Paired display screens | Token stored hashed; revocable |
 | `venues` | Name, address, coordinates, geofence radius | |
-| `meetings` | Type, venue, start, windows, late rule, QR secret, status, headcount | |
+| `meetings` | Type, venue, start, windows, QR secret, status, headcount, visitor count | |
 | `attendance` | P/L/A/M/S, method (self / LVH scan / manual / auto), time, device, distance, accuracy, flags, who set it | One row per member per meeting; each device used once per meeting |
 | `checkin_attempts` | Every attempt with a reason code | Feeds rate limits, the LVH board and flags |
 | `leave_requests` | Medical leave or informed absence, plus approval | |
 | `substitutes` | Substitute details and arrival confirmation | |
-| `member_profiles` | Business details, social links, video link, logo | |
+| `member_profiles` | Business details, social links, video link, logo, date of birth, anniversary | |
 | `member_locations` | Address, area, coordinates, visible, precision | |
 | `calendar_events` | Meetings, events, trainings, slots, assigned member | |
 | `dance_card_templates`, `dance_cards` | Template fields (JSON) and each member's answers (JSON) | |
-| `award_types`, `awards` | The 5 award types; winners per meeting | One winner per award per meeting |
-| `forms`, `form_responses` | Form fields (JSON) and responses | |
+| `award_types`, `awards` | The 5 award types and which fields each uses; winners per meeting | One winner per award per meeting |
+| `feedback` | Suggestions and feedback, anonymous flag, status, Head Table reply | |
+| `forms`, `form_responses` | Left from the removed Forms module (D8), so old responses aren't lost | Not used by the app |
 | `notifications` | In-app notices | |
 | `audit_log` | Who changed what, before and after, reason | Append-only |
 | `settings` | Attendance rules and other config | |
@@ -323,7 +329,8 @@ Better Auth adds its own tables (user, session, account, verification).
   - Near me (List / Map);
   - Dance card;
   - Awards;
-  - Forms;
+  - Suggestions & feedback;
+  - Celebrations (President, VP, Secretary);
   - Me: profile, location, device, notifications.
 - **LVH screens:**
   - live board at `/lvh/[meetingId]`;
@@ -335,9 +342,9 @@ Better Auth adds its own tables (user, session, account, verification).
   - devices;
   - venues and meetings;
   - finalize and PALMS summary;
-  - awards, calendar, forms;
+  - awards, calendar, suggestions & feedback;
   - settings and audit log.
-- **Public:** forms at `/f/[slug]`.
+- **Public:** nothing beyond the sign-in page; the kiosk display needs a paired screen.
 - **Route handlers:**
   - `POST /api/attendance/check-in`
   - `GET /api/kiosk/[meetingId]/token`
@@ -366,7 +373,7 @@ Better Auth adds its own tables (user, session, account, verification).
 | 2. Profile + Location | Profile editor, directory, location setup, Near me list + map | Members can find each other nearest → farthest |
 | 3. Calendar + Recognitions | Calendar, slots, iCal feed; award entry, home screen winners, history | The Head Table publishes a week's awards |
 | 4. Dance Card | Template, editor, PDF | A member downloads their own PDF |
-| 5. Forms | Templates, builder, public links, responses + CSV | The visitor form is used live at a meeting |
+| 5. Suggestions & celebrations | Suggestions & feedback with replies; birthdays and anniversaries for the Head Table (Forms was built here, then removed per D8) | The Head Table replies to a member's suggestion |
 | 6. Launch | Security review against the T1–T16 list, performance on low-end Android phones, device-setup drive, one-page guides for LVH and Secretary | The chapter runs fully on the app and the old method is retired |
 
 Attendance comes first because it's the riskiest feature and needs real meetings to tune.
@@ -390,7 +397,7 @@ Attendance comes first because it's the riskiest feature and needs real meetings
 
 ## 12. Inputs needed to start
 
-- **Accounts:** Neon (database + Object Storage), Vercel; optional Resend (email copies) and Cloudflare Turnstile.
+- **Accounts:** Neon (database + Object Storage), Vercel; optional Resend (email copies).
 - **Domain:** the domain or sub-domain for the app.
 - **Roster:** BNI Connect Chapter Roster export or a CSV with name, email, phone, company and category.
 - **Current-term role holders:** President, VP, Secretary/Treasurer, LVH team, GARAM, coordinators.
@@ -417,8 +424,15 @@ Built and checked locally (type-check, lint, 29 unit tests, production build, br
 - **Calendar:** month and agenda views, coordinator-managed slots, private phone-calendar feed.
 - **Dance card:** form matching the chapter's printed card, and a PDF that is that card filled in.
 - **Weekly recognitions:** admin entry, publishing, history and leaderboard.
-- **Forms:** templates and builder, public and members-only links, Turnstile, responses with CSV. Visitor Registration feeds the PALMS visitor count.
+- **Forms:** built, then removed on 6 Oct 2026 (D8).
 - **Admin:** members (add, edit, CSV import), roles per term with the separation-of-duties check, settings.
+
+Added on 6 Oct 2026 (D8), checked the same way (type-check, lint, 36 unit tests, production build, browser walkthrough):
+
+- Suggestions & feedback, celebrations, date of birth and anniversary in My profile.
+- Admin-only accounts left out of attendance and member lists.
+- Per-award recognition fields; unpublish.
+- Admin clean-up: pagination on long lists; delete and restore for cancelled meetings; reopen a finalized meeting; edit and delete terms; reject a pending phone; delete venues and calendar events with a confirmation; leave decision history; audit log filters; notification delete and "clear read".
 
 Verified by testing in the browser:
 

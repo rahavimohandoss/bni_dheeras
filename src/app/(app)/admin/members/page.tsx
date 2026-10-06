@@ -21,6 +21,7 @@ export default async function MembersAdminPage() {
       status: member.status,
       joinedOn: member.joinedOn,
       isAdmin: member.isAdmin,
+      isChapterMember: member.isChapterMember,
       mustChangePassword: member.mustChangePassword,
     })
     .from(member)
@@ -30,7 +31,7 @@ export default async function MembersAdminPage() {
       <PageHeader
         title="Members"
         back={{ href: "/admin", label: "Admin" }}
-        description={`${rows.filter((r) => r.status === "active").length} active members. Only people on this list can sign in.`}
+        description={`${rows.filter((r) => r.status === "active" && r.isChapterMember).length} active members. Only people on this list can sign in.`}
       />
       <MembersAdmin members={rows} meId={me.id} />
     </PageContainer>

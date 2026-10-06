@@ -3,7 +3,7 @@
  * database. Creates an admin (admin@dheeras.test), demo members with roles
  * (all on the demo default password), a
  * venue in Madurai, a meeting whose check-in is open now, past meetings with
- * attendance, locations, calendar items, awards and a visitor form.
+ * attendance, locations, calendar items and awards.
  *
  *   npm run db:local   (in another terminal)
  *   npm run seed
@@ -13,6 +13,7 @@ import { sql } from "drizzle-orm";
 import { db, pool } from "../src/db";
 import * as s from "../src/db/schema";
 import { newMeetingSecret } from "../src/lib/attendance/qr-token";
+import { DEFAULT_AWARDS } from "../src/lib/award-defaults";
 
 /** Local demo only. Everyone starts on it and chooses their own at first sign-in. */
 const DEFAULT_PASSWORD = "Dheeras@2026";
@@ -27,6 +28,11 @@ const MIN = 60_000;
 const DAY = 86_400_000;
 const now = Date.now();
 const uuid = () => crypto.randomUUID();
+/** A YYYY-MM-DD date in `year` whose day-of-year is `offset` days from today. */
+const demoDate = (year: number, offset: number) => {
+  const d = new Date(now + offset * DAY);
+  return `${year}-${String(d.getUTCMonth() + 1).padStart(2, "0")}-${String(d.getUTCDate()).padStart(2, "0")}`;
+};
 
 const people = [
   { name: "Chapter Admin", email: "admin@dheeras.test", business: "MnT", category: "App Developer", admin: true, roles: [] },
@@ -103,6 +109,8 @@ async function main() {
       businessName: p.business,
       category: p.category,
       isAdmin: p.admin ?? false,
+      // The app admin is a login for running the app, not a chapter member.
+      isChapterMember: !p.admin,
       joinedOn: "2025-01-01",
     });
     for (const role of p.roles) await db.insert(s.roleAssignment).values({ termId: t.id, memberId: id, role });
@@ -112,6 +120,9 @@ async function main() {
       website: `https://example.com/${p.business.toLowerCase().replace(/\s+/g, "-")}`,
       whatsapp: `+9198400${String(10000 + i).slice(-5)}`,
       socials: {},
+      // Spread birthdays and anniversaries around today so the celebrations card has something to show.
+      dateOfBirth: p.admin ? null : demoDate(1975 + i, i * 23 - 20),
+      anniversaryDate: p.admin || i % 3 === 0 ? null : demoDate(2005 + i, i * 31 + 9),
     });
     const [lat, lng, area] = spots[i % spots.length];
     await db.insert(s.memberLocation).values({
@@ -158,7 +169,9 @@ async function main() {
   const codes = ["P", "P", "P", "L", "P", "A", "P", "S", "P", "M", "P", "P"] as const;
   for (const [w, m] of past.entries()) {
     await db.insert(s.attendance).values(
-      ids.map((memberId, i) => {
+      // Everyone except the app admin (index 0), who isn't a chapter member.
+      ids.slice(1).map((memberId, j) => {
+        const i = j + 1;
         const status = codes[(i + w * 3) % codes.length];
         return {
           meetingId: m.id,
@@ -174,9 +187,7 @@ async function main() {
   const types = await db
     .insert(s.awardType)
     .values(
-      ["Highest Referral Giver", "Top Business Giver", "Best Attire", "Best 30-Second Presentation", "Star of the Week"].map(
-        (name, i) => ({ name, sortOrder: i }),
-      ),
+      DEFAULT_AWARDS.map((a, i) => ({ ...a, sortOrder: i })),
     )
     .returning();
   await db.insert(s.award).values(
@@ -207,21 +218,6 @@ async function main() {
       location: "Demo Hotel Meeting Hall",
     },
   ]);
-
-  await db.insert(s.form).values({
-    slug: "visitor",
-    title: "Visitor registration",
-    description: "Welcome to BNI Dheeras! Please tell us about you.",
-    kind: "visitor_registration",
-    visibility: "public",
-    fields: [
-      { id: "name", type: "short_text", label: "Your name", required: true },
-      { id: "phone", type: "phone", label: "Mobile number", required: true },
-      { id: "business", type: "short_text", label: "Business name", required: true },
-      { id: "category", type: "short_text", label: "Business category", required: true },
-      { id: "invited_by", type: "short_text", label: "Invited by (member name)", required: false },
-    ],
-  });
 
   console.log(
     `Seeded ${people.length} members. Sign in with a mobile number (admin: 9840010000, President Arun: 9840010001) ` +

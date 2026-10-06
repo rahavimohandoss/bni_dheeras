@@ -1,43 +1,44 @@
-import { desc, eq, lte, sql } from "drizzle-orm";
+import { count, desc, eq, lte, sql } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { EmptyState, PageContainer, PageHeader } from "@/components/page-header";
+import { Pagination } from "@/components/pagination";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { db } from "@/db";
-import { attendance, meeting } from "@/db/schema";
+import { attendance, meeting, member } from "@/db/schema";
+import { pageFromParam, pageHref, paginate } from "@/lib/pagination";
 import { requireMember } from "@/lib/session";
 import { formatDate } from "@/lib/time";
-import { redirect } from "next/navigation";
 
 export const metadata: Metadata = { title: "Attendance" };
 
-export default async function AttendanceAdminPage() {
+const PAGE_SIZE = 20;
+/** Counts only real chapter members (admin-only accounts are left out). */
+const tally = (status: string) =>
+  sql<number>`count(*) filter (where ${attendance.status} = ${status} and ${member.isChapterMember})::int`;
+
+export default async function AttendanceAdminPage({ searchParams }: PageProps<"/admin/attendance">) {
   const me = await requireMember();
   if (!me.caps.has("palms.view") && !me.caps.has("meeting.finalize")) redirect("/?denied=1");
+  const started = lte(meeting.checkinOpensAt, new Date());
+  const [{ total }] = await db.select({ total: count() }).from(meeting).where(started);
+  const { page, pageCount, offset } = paginate(pageFromParam((await searchParams).page), total, PAGE_SIZE);
   const rows = await db
-    .select({
-      meeting,
-      p: sql<number>`count(*) filter (where ${attendance.status} = 'P')::int`,
-      l: sql<number>`count(*) filter (where ${attendance.status} = 'L')::int`,
-      a: sql<number>`count(*) filter (where ${attendance.status} = 'A')::int`,
-      m: sql<number>`count(*) filter (where ${attendance.status} = 'M')::int`,
-      s: sql<number>`count(*) filter (where ${attendance.status} = 'S')::int`,
-    })
+    .select({ meeting, p: tally("P"), a: tally("A"), l: tally("L"), m: tally("M"), s: tally("S") })
     .from(meeting)
     .leftJoin(attendance, eq(attendance.meetingId, meeting.id))
-    .where(lte(meeting.checkinOpensAt, new Date()))
+    .leftJoin(member, eq(member.id, attendance.memberId))
+    .where(started)
     .groupBy(meeting.id)
     .orderBy(desc(meeting.startsAt))
-    .limit(60);
+    .limit(PAGE_SIZE)
+    .offset(offset);
 
   return (
     <PageContainer wide>
-      <PageHeader
-        title="Attendance & PALMS"
-        back={{ href: "/admin", label: "Admin" }}
-        description="Open a meeting for its PALMS summary, the copy for BNI Connect and absentee follow-ups."
-      />
+      <PageHeader title="Attendance & PALMS" back={{ href: "/admin", label: "Admin" }} />
       {rows.length === 0 ? (
         <EmptyState title="No meetings yet." />
       ) : (
@@ -48,8 +49,8 @@ export default async function AttendanceAdminPage() {
                 <TableHead>Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-right">P</TableHead>
-                <TableHead className="text-right">L</TableHead>
                 <TableHead className="text-right">A</TableHead>
+                <TableHead className="text-right">L</TableHead>
                 <TableHead className="text-right">M</TableHead>
                 <TableHead className="text-right">S</TableHead>
                 <TableHead />
@@ -63,17 +64,25 @@ export default async function AttendanceAdminPage() {
                     <div className="text-xs text-muted-foreground">{r.meeting.title}</div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant={r.meeting.status === "finalized" ? "secondary" : "outline"}>{r.meeting.status}</Badge>
+                    <Badge
+                      variant={
+                        r.meeting.status === "finalized" ? "secondary" : r.meeting.status === "cancelled" ? "destructive" : "outline"
+                      }
+                    >
+                      {r.meeting.status}
+                    </Badge>
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{r.p}</TableCell>
-                  <TableCell className="text-right tabular-nums">{r.l}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.a}</TableCell>
+                  <TableCell className="text-right tabular-nums">{r.l}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.m}</TableCell>
                   <TableCell className="text-right tabular-nums">{r.s}</TableCell>
                   <TableCell className="text-right">
-                    <Link className="text-sm text-primary underline" href={`/meetings/${r.meeting.id}/summary`}>
-                      Summary
-                    </Link>
+                    {r.meeting.status === "cancelled" ? null : (
+                      <Link className="text-sm text-primary underline" href={`/meetings/${r.meeting.id}/summary`}>
+                        Summary
+                      </Link>
+                    )}
                     {r.meeting.status === "scheduled" ? (
                       <Link className="ml-3 text-sm text-primary underline" href={`/lvh/${r.meeting.id}`}>
                         Board
@@ -86,6 +95,7 @@ export default async function AttendanceAdminPage() {
           </Table>
         </div>
       )}
+      <Pagination page={page} pageCount={pageCount} href={(p) => pageHref("/admin/attendance", {}, p)} />
     </PageContainer>
   );
 }

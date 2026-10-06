@@ -54,7 +54,7 @@ export function DanceCardForm({ initial }: { initial: Record<string, string> }) 
           </CardContent>
         </Card>
       ))}
-      <div className="sticky bottom-20 z-10 flex justify-end md:bottom-4">
+      <div className="sticky bottom-20 z-10 flex justify-end lg:bottom-4">
         <Button type="submit" size="lg" disabled={pending || !dirty} className="shadow-lg">
           {dirty ? "Save dance card" : "Saved"}
         </Button>

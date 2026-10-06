@@ -1,10 +1,11 @@
 "use server";
 
+import { and, eq } from "drizzle-orm";
 import { refresh } from "next/cache";
 import { z } from "zod";
 import { db } from "@/db";
-import { absenceFollowup } from "@/db/schema";
-import { type ActionResult, runAction } from "@/lib/action";
+import { absenceFollowup, meeting } from "@/db/schema";
+import { type ActionResult, runAction, UserError } from "@/lib/action";
 import {
   confirmSubstitute,
   finalizeMeeting,
@@ -61,6 +62,41 @@ export async function lvhFinalize(input: { meetingId: string; headcount: number 
     const me = await assertCap("meeting.finalize");
     const headcount = input.headcount === null ? null : z.number().int().min(0).max(500).parse(input.headcount);
     await finalizeMeeting({ actorId: me.id, meetingId: z.uuid().parse(input.meetingId), headcount });
+    refresh();
+    return null;
+  });
+}
+
+/**
+ * Opens a finalized meeting again so the LVH team can correct a status on the
+ * board, then finalize again. The reason goes into the audit log.
+ */
+export async function lvhReopen(input: { meetingId: string; reason: string }): Promise<ActionResult> {
+  return runAction(async () => {
+    const me = await assertCap("meeting.finalize");
+    const meetingId = z.uuid().parse(input.meetingId);
+    const why = reason.parse(input.reason);
+    const [row] = await db
+      .update(meeting)
+      .set({ status: "scheduled", finalizedAt: null, finalizedById: null })
+      .where(and(eq(meeting.id, meetingId), eq(meeting.status, "finalized")))
+      .returning({ id: meeting.id });
+    if (!row) throw new UserError("Only a finalized meeting can be reopened.");
+    await audit({ actorId: me.id, action: "meeting.reopen", entity: "meeting", entityId: meetingId, reason: why });
+    refresh();
+    return null;
+  });
+}
+
+/** Visitors at the meeting (counted at the door by the LVH team; goes into PALMS). */
+export async function setVisitorCount(input: { meetingId: string; count: number }): Promise<ActionResult> {
+  return runAction(async () => {
+    const me = await assertAnyCap(["kiosk.run", "meeting.finalize"]);
+    const meetingId = z.uuid().parse(input.meetingId);
+    const count = z.number().int().min(0).max(500).parse(input.count);
+    const [row] = await db.update(meeting).set({ visitorCount: count }).where(eq(meeting.id, meetingId)).returning({ id: meeting.id });
+    if (!row) throw new UserError("Meeting not found.");
+    await audit({ actorId: me.id, action: "meeting.visitors", entity: "meeting", entityId: meetingId, after: { count } });
     refresh();
     return null;
   });

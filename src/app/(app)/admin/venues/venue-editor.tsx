@@ -3,7 +3,8 @@
 import { MapPinIcon, PlusIcon } from "lucide-react";
 import { useState, useTransition } from "react";
 import { toast } from "sonner";
-import { saveVenue, setVenueActive } from "@/actions/venues";
+import { deleteVenue, saveVenue, setVenueActive } from "@/actions/venues";
+import { ConfirmButton } from "@/components/confirm-button";
 import { LocationPicker, type PickedPlace } from "@/components/map/location-picker";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,7 @@ export function VenueEditor({ venues, defaultGeofence }: { venues: Venue[]; defa
             <Button variant="outline" size="sm" onClick={() => setEditing(v)}>
               Edit
             </Button>
-            <ToggleActive id={v.id} active={v.isActive} />
+            <VenueButtons id={v.id} name={v.name} active={v.isActive} />
           </CardContent>
         </Card>
       ))}
@@ -60,22 +61,34 @@ export function VenueEditor({ venues, defaultGeofence }: { venues: Venue[]; defa
   );
 }
 
-function ToggleActive({ id, active }: { id: string; active: boolean }) {
-  const [pending, start] = useTransition();
+function VenueButtons({ id, name, active }: { id: string; name: string; active: boolean }) {
   return (
-    <Button
-      variant="ghost"
-      size="sm"
-      disabled={pending}
-      onClick={() =>
-        start(async () => {
-          const res = await setVenueActive(id, !active);
-          if (!res.ok) toast.error(res.error);
-        })
-      }
-    >
-      {active ? "Deactivate" : "Activate"}
-    </Button>
+    <>
+      {active ? (
+        <ConfirmButton
+          label="Deactivate"
+          title={`Deactivate ${name}?`}
+          description="It can't be chosen for new meetings. Meetings already scheduled there keep it."
+          success="Venue deactivated."
+          action={() => setVenueActive(id, false)}
+        />
+      ) : (
+        <ConfirmButton
+          label="Activate"
+          title={`Activate ${name}?`}
+          success="Venue activated."
+          action={() => setVenueActive(id, true)}
+          destructive={false}
+        />
+      )}
+      <ConfirmButton
+        label="Delete"
+        title={`Delete ${name}?`}
+        description="Only possible if no meeting has ever used it."
+        success="Venue deleted."
+        action={() => deleteVenue(id)}
+      />
+    </>
   );
 }
 

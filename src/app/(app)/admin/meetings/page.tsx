@@ -1,6 +1,8 @@
 import { and, asc, eq, gte } from "drizzle-orm";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { deleteMeeting, restoreMeeting } from "@/actions/meetings";
+import { ConfirmButton } from "@/components/confirm-button";
 import { EmptyState, PageContainer, PageHeader } from "@/components/page-header";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,12 +18,19 @@ export const metadata: Metadata = { title: "Meetings" };
 
 export default async function MeetingsAdminPage() {
   await requireCapPage("meetings.manage");
-  const [upcoming, venues, settings] = await Promise.all([
+  const [upcoming, cancelled, venues, settings] = await Promise.all([
     db
       .select({ meeting, venueName: venue.name })
       .from(meeting)
       .leftJoin(venue, eq(venue.id, meeting.venueId))
       .where(and(gte(meeting.endsAt, new Date()), eq(meeting.status, "scheduled")))
+      .orderBy(asc(meeting.startsAt))
+      .limit(30),
+    db
+      .select({ meeting, venueName: venue.name })
+      .from(meeting)
+      .leftJoin(venue, eq(venue.id, meeting.venueId))
+      .where(and(gte(meeting.endsAt, new Date()), eq(meeting.status, "cancelled")))
       .orderBy(asc(meeting.startsAt))
       .limit(30),
     db.select({ id: venue.id, name: venue.name, geofenceM: venue.geofenceM }).from(venue).where(eq(venue.isActive, true)),
@@ -39,7 +48,6 @@ export default async function MeetingsAdminPage() {
     date: toIstDateInput(nextDate),
     startTime: last ? toTime(last.startsAt) : "07:00",
     endTime: last ? toTime(last.endsAt) : "08:30",
-    graceMinutes: settings.defaultGraceMinutes === null ? "" : String(settings.defaultGraceMinutes),
     geofenceM: "",
     opensBeforeMin: String(settings.checkinOpensBeforeMin),
     weeks: "8",
@@ -75,18 +83,50 @@ export default async function MeetingsAdminPage() {
                           {m.mode === "online" ? "Online" : (venueName ?? "No venue")}
                         </div>
                       </div>
-                      <div className="flex gap-1.5">
-                        <Badge variant="secondary">
-                          {m.graceMinutes === null ? "Late after exact start" : `Grace ${m.graceMinutes} min`}
-                        </Badge>
-                        {m.geofenceM ? <Badge variant="outline">{m.geofenceM} m</Badge> : null}
-                      </div>
+                      {m.geofenceM ? <Badge variant="outline">{m.geofenceM} m</Badge> : null}
                     </CardContent>
                   </Card>
                 </Link>
               ))}
             </div>
           )}
+          {cancelled.length ? (
+            <div className="mt-6">
+              <h2 className="mb-2 text-sm font-semibold text-muted-foreground">Cancelled</h2>
+              <div className="space-y-2">
+                {cancelled.map(({ meeting: m, venueName }) => (
+                  <Card key={m.id}>
+                    <CardContent className="flex flex-wrap items-center justify-between gap-2 py-3">
+                      <div>
+                        <div className="font-medium line-through decoration-muted-foreground/60">{m.title}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {formatDateTime(m.startsAt)} · {m.mode === "online" ? "Online" : (venueName ?? "No venue")}
+                          {m.notes ? ` · ${m.notes}` : ""}
+                        </div>
+                      </div>
+                      <div className="flex gap-1">
+                        <ConfirmButton
+                          label="Restore"
+                          title="Restore this meeting?"
+                          description="It goes back on the schedule and check-in opens as usual."
+                          success="Meeting restored."
+                          action={restoreMeeting.bind(null, m.id)}
+                          destructive={false}
+                        />
+                        <ConfirmButton
+                          label="Delete"
+                          title="Delete this meeting?"
+                          description="It is removed completely. A meeting with check-ins or recognitions can't be deleted."
+                          success="Meeting deleted."
+                          action={deleteMeeting.bind(null, m.id)}
+                        />
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          ) : null}
         </TabsContent>
         <TabsContent value="weekly">
           <Card>

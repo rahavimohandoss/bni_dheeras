@@ -4,7 +4,7 @@ Chapter app for BNI Dheeras (Madurai):
 
 - **Attendance:** self-scan of a rotating QR, PALMS summary and absence alerts.
 - **Members:** profiles and a nearest-to-farthest map.
-- **Chapter life:** calendar, 1-to-1 dance cards with PDF, weekly recognitions, forms.
+- **Chapter life:** calendar, 1-to-1 dance cards with PDF, weekly recognitions, birthday and anniversary celebrations, suggestions and feedback to the Head Table.
 
 The design, loophole list and decisions are in [docs/PLAN.md](docs/PLAN.md).
 
@@ -86,19 +86,16 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
    - [vercel.json](vercel.json) pins functions to `sin1` and schedules the Monday attendance report (09:00 IST). Set `CRON_SECRET`.
    - The Hobby (free) plan is meant for non-commercial use. Check Vercel's terms for a chapter app.
 5. **First admin:** with `SETUP_TOKEN` set, open `https://YOUR-APP-DOMAIN/setup` and create the admin with their own password. Afterwards, remove `SETUP_TOKEN`.
-6. **Optional:**
-   - `NEXT_PUBLIC_TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`: spam check on public forms.
-   - `NOMINATIM_EMAIL`: contact address for OpenStreetMap's address search.
+6. **Optional:** `NOMINATIM_EMAIL`, a contact address for OpenStreetMap's address search.
 
 ## Chapter rollout checklist
 
 1. **Admin → Venues:** put the pin on the meeting hall; geofence 150 m.
-2. **Admin → Meetings → Weekly series:**
-   - day and time;
-   - grace minutes (empty means late counts from the exact start time).
+2. **Admin → Meetings → Weekly series:** day and time. There's no grace period: a check-in after the start time is Late. Weeks that already have a meeting are skipped.
 3. **Admin → Members → Import CSV:** BNI Connect roster saved as CSV, or add members one by one.
    - The mobile number is each member's login ID.
    - Everyone starts on the default password (Admin → Settings → Member sign-in). Share it with the chapter, or send each member their details from **Password → Send on WhatsApp**.
+   - An account that only runs the app, such as "BNI Dheeras Admin", must have **Chapter member** unticked (Edit). It then never checks in and is left out of PALMS, absences, the directory, recognitions and celebrations.
 4. **Admin → Roles & terms:**
    - President, VP, Secretary/Treasurer, LVH team, Attendance Coordinator, Membership Committee, coordinators.
    - The President of the current term gets the same full access as an Admin. When a new term starts, it moves to the new President.
@@ -119,7 +116,7 @@ On iPhone, use **Share → Add to Home Screen** first, then register the phone f
 | `npm run db:generate` | New SQL migration from `src/db/schema.ts` |
 | `npm run db:migrate` | Apply migrations to `DATABASE_URL` |
 | `npm run seed` | Demo data (local databases only) |
-| `npm test` | Unit tests (QR tokens, geofence, late rule, device signatures, forms…) |
+| `npm test` | Unit tests (QR tokens, geofence, late rule, device signatures, pagination, celebrations…) |
 | `npm run typecheck` / `npm run lint` / `npm run build` | Checks and production build |
 
 ## Where things are

@@ -18,14 +18,14 @@ export default async function AwardsAdminPage({ searchParams }: PageProps<"/admi
     .from(meeting)
     .where(and(lte(meeting.startsAt, daysFromNow(1)), ne(meeting.status, "cancelled")))
     .orderBy(desc(meeting.startsAt))
-    .limit(12);
+    .limit(52);
   const relevant = meetings;
   const { meeting: meetingParam } = await searchParams;
   const selected = relevant.find((m) => m.id === meetingParam) ?? relevant[0];
 
   const [types, members, existing] = await Promise.all([
     db.select().from(awardType).where(eq(awardType.isActive, true)).orderBy(asc(awardType.sortOrder)),
-    db.select({ id: member.id, name: member.fullName }).from(member).where(ne(member.status, "inactive")).orderBy(asc(member.fullName)),
+    db.select({ id: member.id, name: member.fullName }).from(member).where(and(ne(member.status, "inactive"), eq(member.isChapterMember, true))).orderBy(asc(member.fullName)),
     selected ? db.select().from(award).where(eq(award.meetingId, selected.id)) : Promise.resolve([]),
   ]);
 
@@ -41,7 +41,13 @@ export default async function AwardsAdminPage({ searchParams }: PageProps<"/admi
           key={selected.id}
           meetings={relevant.map((m) => ({ id: m.id, label: `${formatDate(m.startsAt)} · ${m.title}` }))}
           meetingId={selected.id}
-          types={types.map((t) => ({ id: t.id, name: t.name }))}
+          types={types.map((t) => ({
+            id: t.id,
+            name: t.name,
+            noteEnabled: t.noteEnabled,
+            valueEnabled: t.valueEnabled,
+            valueHint: t.valueHint,
+          }))}
           members={members}
           initial={existing.map((e) => ({
             awardTypeId: e.awardTypeId,
