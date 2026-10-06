@@ -1,0 +1,2 @@
+# Never convert line endings in PDFs (the dance-card template is ASCII inside).
+*.pdf binary
