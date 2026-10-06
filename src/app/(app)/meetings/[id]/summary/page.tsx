@@ -1,6 +1,8 @@
-import { eq } from "drizzle-orm";
+import { asc, eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
 import { DownloadIcon } from "lucide-react";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PageContainer, PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
@@ -9,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { VisitorCounter } from "@/components/visitor-counter";
 import { db } from "@/db";
-import { absenceFollowup, ATTENDANCE_STATUSES, type AttendanceStatus, member } from "@/db/schema";
+import { absenceFollowup, ATTENDANCE_STATUSES, type AttendanceStatus, member, visitor } from "@/db/schema";
 import { getBoardData } from "@/lib/attendance/board";
 import { getMeetingWithVenue } from "@/lib/attendance/queries";
 import { requireMember } from "@/lib/session";
@@ -34,7 +36,25 @@ export default async function SummaryPage({ params }: PageProps<"/meetings/[id]/
   const m = await getMeetingWithVenue(id);
   if (!m) notFound();
   const data = await getBoardData(m);
-  const followups = await db.select().from(absenceFollowup).where(eq(absenceFollowup.meetingId, m.id));
+  const inviter = alias(member, "inviter");
+  const [followups, visitors] = await Promise.all([
+    db.select().from(absenceFollowup).where(eq(absenceFollowup.meetingId, m.id)),
+    db
+      .select({
+        id: visitor.id,
+        name: visitor.name,
+        phone: visitor.phone,
+        business: visitor.business,
+        category: visitor.category,
+        note: visitor.note,
+        invitedBy: inviter.fullName,
+      })
+      .from(visitor)
+      .leftJoin(inviter, eq(inviter.id, visitor.invitedById))
+      .where(eq(visitor.meetingId, m.id))
+      .orderBy(asc(visitor.createdAt)),
+  ]);
+  const canEditVisitors = me.caps.has("kiosk.run") || me.caps.has("meeting.finalize");
   const finalizedBy = m.finalizedById
     ? (await db.select({ name: member.fullName }).from(member).where(eq(member.id, m.finalizedById)))[0]?.name
     : null;
@@ -146,6 +166,53 @@ export default async function SummaryPage({ params }: PageProps<"/meetings/[id]/
           </TableBody>
         </Table>
       </div>
+
+      {data.visitors > 0 || visitors.length ? (
+        <section className="mt-8">
+          <h2 className="mb-1 font-semibold">Visitors ({data.visitors})</h2>
+          <p className="no-print mb-3 text-sm text-muted-foreground">
+            {visitors.length
+              ? `Details taken for ${visitors.length} of ${data.visitors}.`
+              : "No details taken yet."}
+            {canEditVisitors ? (
+              <>
+                {" "}
+                <Link className="text-primary underline" href={`/admin/meetings/${m.id}/visitors`}>
+                  Add or edit visitor details
+                </Link>
+              </>
+            ) : null}
+          </p>
+          {visitors.length ? (
+            <div className="rounded-xl border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Name</TableHead>
+                    <TableHead>Business</TableHead>
+                    <TableHead>Category</TableHead>
+                    <TableHead>Mobile</TableHead>
+                    <TableHead>Invited by</TableHead>
+                    <TableHead>Note</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {visitors.map((v) => (
+                    <TableRow key={v.id}>
+                      <TableCell className="font-medium">{v.name}</TableCell>
+                      <TableCell>{v.business}</TableCell>
+                      <TableCell>{v.category}</TableCell>
+                      <TableCell className="tabular-nums">{v.phone}</TableCell>
+                      <TableCell>{v.invitedBy}</TableCell>
+                      <TableCell className="max-w-64 text-sm whitespace-normal">{v.note}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
 
       {m.status === "finalized" && absentees.length ? (
         <section className="no-print mt-8">

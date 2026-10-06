@@ -1,6 +1,6 @@
 # BNI Dheeras Chapter App — Build Plan
 
-**Status:** v1.4 · decisions confirmed 5 Oct 2026, changes D8–D10 on 6 Oct 2026 · first build done (see §13)
+**Status:** v1.5 · decisions confirmed 5 Oct 2026, changes D8–D12 on 6 Oct 2026 · first build done (see §13)
 **Scope:** every feature in the "BNI Dheeras Chapter App: Features" sheet, with two changes:
 
 1. **Attendance:** the LVH team no longer scans each member's QR. Instead a QR is shown on the venue screen and every member scans it. Nobody can mark attendance for someone else.
@@ -16,7 +16,7 @@
 > - **D4 Selfie check:** not used.
 > - **D5 Late:** counts from the exact start time, with no grace period (the per-meeting grace field was removed on 6 Oct 2026). The geofence was removed later the same day (D9).
 > - **D6:** Dheeras only, so no multi-chapter `chapter_id`.
-> - **D7 President = Admin:** the President of the current term has exactly the same access as an Admin, including the exemption from the separation-of-duties rule (§3). It follows the role, so it moves to the new President when the term changes.
+> - **D7 President = Admin:** the President of the current term has exactly the same access as an Admin, including the exemption from the separation-of-duties rule (§3). It follows the role, so it moves to the new President when the term changes. (Extended to the VP and the Secretary / Treasurer by D11.)
 > - **D8 Changes (6 Oct 2026):**
 >   - **Forms removed.** Old form responses stay in the database. Visitors are now counted with −/+ on the LVH board and the PALMS summary.
 >   - **Suggestions & feedback** replaces it. Any member sends one; the President, VP, Secretary and admins read it, reply and set a status. "Hide my name" hides the sender from the Head Table, the notification and the audit log.
@@ -33,6 +33,12 @@
 >   - Removed: LVH Captain (its holders moved to LVH Team), Membership Committee (GARAM), and the Education Slot, Feature Presentation, Events & BBB and Training coordinators.
 >   - The Head Table manages the whole calendar, absence-limit alerts go to the Head Table, and finalizing is for the Secretary, the Attendance Coordinator and the President.
 >   - Roles & terms shows each role's permissions behind an eye icon, and lists the app admins with the roles.
+> - **D11 The whole Head Table = Admin (6 Oct 2026):** the Vice President and the Secretary / Treasurer now have every capability, like the President (D7).
+>   - They are all outside the separation-of-duties rule (§3), so one of them may hold LVH roles as well; their actions are audit-logged instead.
+>   - **The cost:** any of them can reset the others' and the Admin's password to the chapter default and sign in as them, and can use `/setup` admin recovery while `SETUP_TOKEN` is set. The chapter accepted this.
+> - **D12 PALMS and visitor entry (6 Oct 2026):** Admin → Meetings → a meeting has **Enter PALMS** (one tap per member for P/A/L/M/S, for meetings recorded on paper) and **Visitors** (the count, then that many cards for name, mobile, business, category, invited by and a note).
+>   - Changing attendance that is already recorded needs a reason; the first entry doesn't. Both go to the audit log.
+>   - Visitor details appear on the PALMS summary and in the PALMS CSV.
 
 ---
 
@@ -81,20 +87,18 @@
 
 Roles are assigned per **term**, and one member can hold several.
 
-| Capability | Member | LVH team | Attendance Coord. | Sec / Treasurer | VP | President, Admin |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|
-| Own profile, location, dance card, check-in | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Run kiosk QR + LVH live board | | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Manual check-in, confirm substitutes (reason required) | | ✓ | | | | ✓ |
-| Approve devices, approve medical leave | | | ✓ | ✓ | | ✓ |
-| Finalize meeting (and reopen it to correct a status), PALMS summary | | | ✓ | ✓ | view | ✓ |
-| Weekly recognitions (Head Table) | | | | ✓ | ✓ | ✓ |
-| Calendar (events, trainings, presentation slots) | | | | ✓ | ✓ | ✓ |
-| Send a suggestion or feedback | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| Read and reply to suggestions; see birthdays and anniversaries | | | | ✓ | ✓ | ✓ |
-| Members, roles, settings, audit log | | | | members, audit log | | ✓ |
+| Capability | Member | LVH team | Attendance Coord. | Head Table, Admin |
+|---|:-:|:-:|:-:|:-:|
+| Own profile, location, dance card, check-in | ✓ | ✓ | ✓ | ✓ |
+| Run kiosk QR + LVH live board | | ✓ | ✓ | ✓ |
+| Manual check-in, confirm substitutes, enter PALMS (reason required) | | ✓ | | ✓ |
+| Approve devices, approve medical leave | | | ✓ | ✓ |
+| Finalize meeting (and reopen it to correct a status), PALMS summary, visitors | | | ✓ | ✓ |
+| Weekly recognitions, calendar, suggestions, celebrations | | | | ✓ |
+| Send a suggestion or feedback | ✓ | ✓ | ✓ | ✓ |
+| Members, roles, settings, audit log | | | | ✓ |
 
-Admin is a technical super-user, and the President of the current term has exactly the same access (decision D7). Both are exempt from the separation-of-duties rule (a device approver can't also do manual check-ins), so every action either of them takes is audit-logged.
+Admin is a technical super-user, and the Head Table of the current term — President, Vice President and Secretary / Treasurer — has exactly the same access (decisions D7 and D11). They are all exempt from the separation-of-duties rule (a device approver can't also do manual check-ins), so every action any of them takes is audit-logged instead.
 
 ## 4. Attendance
 

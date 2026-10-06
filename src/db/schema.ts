@@ -371,6 +371,32 @@ export const substitute = pgTable(
   (t) => [uniqueIndex("substitute_unique").on(t.meetingId, t.memberId)],
 );
 
+/**
+ * Visitors at a meeting, for PALMS and follow-up. `meeting.visitor_count` is
+ * the number counted at the door; these are the ones whose details were taken,
+ * so there can be fewer rows than the count.
+ */
+export const visitor = pgTable(
+  "visitor",
+  {
+    id: id(),
+    meetingId: text("meeting_id")
+      .notNull()
+      .references(() => meeting.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    phone: text("phone"),
+    business: text("business"),
+    category: text("category"),
+    /** The member who invited them. */
+    invitedById: text("invited_by_id").references(() => member.id, { onDelete: "set null" }),
+    note: text("note"),
+    createdById: text("created_by_id").references(() => member.id),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("visitor_meeting_idx").on(t.meetingId)],
+);
+
 export const absenceFollowup = pgTable(
   "absence_followup",
   {

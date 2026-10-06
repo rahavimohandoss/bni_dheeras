@@ -26,7 +26,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 
 type Term = { id: string; name: string; startsOn: string; endsOn: string };
 type MemberOpt = { id: string; fullName: string; isAdmin: boolean; isChapterMember: boolean };
-type RoleInfo = { key: string; label: string; can: string[]; notWith: string[] };
+type RoleInfo = { key: string; label: string; fullAccess: boolean; can: string[]; notWith: string[] };
 
 export function RolesAdmin({
   meId,
@@ -164,19 +164,20 @@ export function RolesAdmin({
           </Card>
           {roles.map((r) => {
             const holders = assignments.filter((a) => a.role === r.key);
-            const president = r.key === "president";
             return (
               <Card key={r.key}>
                 <CardContent className="py-3">
                   <div className="mb-2 flex items-center gap-1 text-sm font-semibold">
                     <span className="flex-1">
                       {r.label}
-                      {president ? <span className="ml-1.5 font-normal text-muted-foreground">· full access, same as Admin</span> : null}
+                      {r.fullAccess ? (
+                        <span className="ml-1.5 font-normal text-muted-foreground">· full access, same as Admin</span>
+                      ) : null}
                     </span>
                     <PermissionsButton
                       title={r.label}
-                      note={president ? "Full access, the same as an app admin, for this term." : undefined}
-                      can={president ? everything : r.can}
+                      note={r.fullAccess ? "Full access, the same as an app admin, for this term." : undefined}
+                      can={r.fullAccess ? everything : r.can}
                       notWith={r.notWith}
                     />
                   </div>

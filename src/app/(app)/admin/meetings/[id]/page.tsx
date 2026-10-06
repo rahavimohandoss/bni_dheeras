@@ -19,7 +19,7 @@ import { MeetingForm } from "../meeting-form";
 export const metadata: Metadata = { title: "Edit meeting" };
 
 export default async function EditMeetingPage({ params }: PageProps<"/admin/meetings/[id]">) {
-  await requireCapPage("meetings.manage");
+  const me = await requireCapPage("meetings.manage");
   const { id } = await params;
   const [m] = await db.select().from(meeting).where(eq(meeting.id, id));
   if (!m) notFound();
@@ -36,6 +36,18 @@ export default async function EditMeetingPage({ params }: PageProps<"/admin/meet
         back={{ href: "/admin/meetings", label: "Meetings" }}
         actions={
           <>
+            {m.status !== "cancelled" && me.caps.has("attendance.manual") ? (
+              <Button asChild>
+                <Link href={`/admin/meetings/${m.id}/palms`}>Enter PALMS</Link>
+              </Button>
+            ) : null}
+            {m.status !== "cancelled" && (me.caps.has("kiosk.run") || me.caps.has("meeting.finalize")) ? (
+              <Button asChild variant="outline">
+                <Link href={`/admin/meetings/${m.id}/visitors`}>
+                  Visitors{m.visitorCount ? ` · ${m.visitorCount}` : ""}
+                </Link>
+              </Button>
+            ) : null}
             <Button asChild variant="outline">
               <Link href={`/lvh/${m.id}`}>Live board</Link>
             </Button>

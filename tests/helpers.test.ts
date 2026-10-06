@@ -7,6 +7,7 @@ import { pageFromParam, pageHref, pageItems, paginate } from "@/lib/pagination";
 import {
   CAPABILITIES,
   CAPABILITY_LABELS,
+  FULL_ACCESS_ROLES,
   ROLE_KEYS,
   type Role,
   capabilitiesFor,
@@ -36,7 +37,8 @@ describe("IST time helpers", () => {
 describe("separation of duties", () => {
   it("blocks one person from approving devices AND doing manual check-ins", () => {
     expect(roleConflict(["lvh", "attendance_coordinator"])).not.toBeNull();
-    expect(roleConflict(["lvh", "secretary_treasurer"])).not.toBeNull();
+    // The Head Table holds both by design (D11), so the rule doesn't apply to them.
+    expect(roleConflict(["lvh", "secretary_treasurer"])).toBeNull();
     expect(roleConflict(["lvh", "vice_president"])).toBeNull();
     expect(roleConflict(["attendance_coordinator", "secretary_treasurer"])).toBeNull();
   });
@@ -55,30 +57,30 @@ describe("separation of duties", () => {
     expect(ROLE_KEYS.length).toBe(5);
   });
 
-  it("the President has exactly the same access as Admin", () => {
-    expect(capabilitiesFor(["president"], false)).toEqual(capabilitiesFor([], true));
-    expect(capabilitiesFor(["president"], false).size).toBe(CAPABILITIES.length);
-    expect(hasFullAccess(["president"], false)).toBe(true);
-    expect(hasFullAccess(["vice_president", "secretary_treasurer"], false)).toBe(false);
-    // Like Admin, the President is outside the separation-of-duties rule.
-    expect(roleConflict(["president"])).toBeNull();
-    expect(roleConflict(["president", "lvh", "attendance_coordinator"])).toBeNull();
+  it("gives the whole Head Table exactly the same access as Admin (D7, D11)", () => {
+    const admin = capabilitiesFor([], true);
+    for (const role of FULL_ACCESS_ROLES) {
+      expect(capabilitiesFor([role], false)).toEqual(admin);
+      expect(capabilitiesFor([role], false).size).toBe(CAPABILITIES.length);
+      expect(hasFullAccess([role], false)).toBe(true);
+      // Like Admin, they're outside the separation-of-duties rule.
+      expect(roleConflict([role, "lvh", "attendance_coordinator"])).toBeNull();
+    }
+    expect(hasFullAccess(["lvh", "attendance_coordinator"], false)).toBe(false);
   });
 
-  it("only lets Head Table reset passwords of people who can't do more than them", () => {
+  it("lets the Head Table reset any password, and nobody else reset theirs", () => {
+    const admin = capabilitiesFor([], true);
     const vp = capabilitiesFor(["vice_president"], false);
-    const secretary = capabilitiesFor(["secretary_treasurer"], false);
-    const president = capabilitiesFor(["president"], false);
+    const coordinator = capabilitiesFor(["attendance_coordinator"], false);
     expect(vp.has("members.reset_password")).toBe(true);
-    expect(secretary.has("members.reset_password")).toBe(true);
     expect(capabilitiesFor(["lvh"], false).has("members.reset_password")).toBe(false);
-    expect(capsCover(vp, capabilitiesFor([], false))).toBe(true);
-    expect(capsCover(vp, capabilitiesFor(["lvh"], false))).toBe(false); // VP can't mark attendance by hand
-    expect(capsCover(vp, secretary)).toBe(false);
-    expect(capsCover(vp, president)).toBe(false);
-    expect(capsCover(secretary, vp)).toBe(true);
-    expect(capsCover(secretary, capabilitiesFor([], true))).toBe(false);
-    expect(capsCover(president, capabilitiesFor([], true))).toBe(true);
+    // Full access covers everyone, including each other and the Admin (the cost of D11).
+    expect(capsCover(vp, admin)).toBe(true);
+    expect(capsCover(vp, capabilitiesFor(["president"], false))).toBe(true);
+    // Nobody below the Head Table can reset someone who can do more than them.
+    expect(capsCover(coordinator, vp)).toBe(false);
+    expect(capsCover(vp, coordinator)).toBe(true);
   });
 });
 

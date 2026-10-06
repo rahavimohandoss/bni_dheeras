@@ -1,3 +1,7 @@
+import { asc, eq } from "drizzle-orm";
+import { alias } from "drizzle-orm/pg-core";
+import { db } from "@/db";
+import { member, visitor } from "@/db/schema";
 import { getBoardData } from "@/lib/attendance/board";
 import { getMeetingWithVenue } from "@/lib/attendance/queries";
 import { toCsv } from "@/lib/csv";
@@ -15,6 +19,20 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/meetings/[id]/p
   const m = await getMeetingWithVenue(id);
   if (!m) return new Response("Not found", { status: 404 });
   const data = await getBoardData(m);
+  const inviter = alias(member, "inviter");
+  const visitors = await db
+    .select({
+      name: visitor.name,
+      business: visitor.business,
+      category: visitor.category,
+      phone: visitor.phone,
+      note: visitor.note,
+      invitedBy: inviter.fullName,
+    })
+    .from(visitor)
+    .leftJoin(inviter, eq(inviter.id, visitor.invitedById))
+    .where(eq(visitor.meetingId, m.id))
+    .orderBy(asc(visitor.createdAt));
   const csv = toCsv([
     ["Member", "Business", "Category", "PALMS", "Time", "How", "Substitute", "Note"],
     ...data.members.map((r) => [
@@ -30,6 +48,13 @@ export async function GET(_req: Request, ctx: RouteContext<"/api/meetings/[id]/p
     [],
     ["Visitors", String(data.visitors)],
     ["Headcount", m.headcount === null ? "" : String(m.headcount)],
+    ...(visitors.length
+      ? [
+          [],
+          ["Visitor", "Business", "Category", "Mobile", "Invited by", "Note"],
+          ...visitors.map((v) => [v.name, v.business ?? "", v.category ?? "", v.phone ?? "", v.invitedBy ?? "", v.note ?? ""]),
+        ]
+      : []),
   ]);
   return new Response(csv, {
     headers: {

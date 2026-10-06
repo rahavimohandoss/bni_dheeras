@@ -3,7 +3,15 @@ import type { Metadata } from "next";
 import { PageContainer, PageHeader } from "@/components/page-header";
 import { db } from "@/db";
 import { member, roleAssignment, term } from "@/db/schema";
-import { CAPABILITIES, CAPABILITY_LABELS, ROLE_KEYS, ROLES, roleCapabilities, roleConflict } from "@/lib/permissions";
+import {
+  CAPABILITIES,
+  CAPABILITY_LABELS,
+  hasFullAccess,
+  ROLE_KEYS,
+  ROLES,
+  roleCapabilities,
+  roleConflict,
+} from "@/lib/permissions";
 import { requireCapPage } from "@/lib/session";
 import { toIstDateInput } from "@/lib/time";
 import { RolesAdmin } from "./roles-admin";
@@ -44,6 +52,7 @@ export default async function RolesPage({ searchParams }: PageProps<"/admin/role
         roles={ROLE_KEYS.map((key) => ({
           key,
           label: ROLES[key],
+          fullAccess: hasFullAccess([key], false),
           // For the eye icon: what the role can do, and which roles it can't be held with.
           can: roleCapabilities(key).map((c) => CAPABILITY_LABELS[c]),
           notWith: ROLE_KEYS.filter((other) => other !== key && roleConflict([key, other])).map((k) => ROLES[k]),
